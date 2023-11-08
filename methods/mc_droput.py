@@ -33,6 +33,14 @@ class NeuralNetworkWithDropout(nn.Module):
 
             print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item()}')
 
+    def predictive_uq(self, x, n_sim):
+        x_len = len(x)
+        y_random = torch.empty(x_len, n_sim)
+        with torch.no_grad():
+            for i in range(n_sim):
+                y_random[:, i] = self.forward(x).reshape(-1)
+        return y_random
+
     def evaluate(self, test_loader):
         correct = 0
         total = 0
