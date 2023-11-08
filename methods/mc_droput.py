@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class NeuralNetworkWithDropout(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, dropout_prob):
-        super(NeuralNetworkWithDropout, self).__init()
+        super(NeuralNetworkWithDropout, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)  # Input layer to hidden layer
         self.relu = nn.ReLU()  # Activation function
         self.dropout = nn.Dropout(dropout_prob)  # Dropout layer
