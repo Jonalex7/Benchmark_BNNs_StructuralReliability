@@ -4,7 +4,8 @@ from scipy.stats import qmc
 
 class g2D_four_branch():
     def __init__(self):
-        self.dim = 2
+        self.input_dim = 2
+        self.output_dim = 1
 
     def eval_lstate(self, x):
         """
@@ -58,15 +59,15 @@ class g2D_four_branch():
     
     def monte_carlo_estimate(self, n_samples):
         n_mcs = int(n_samples)
-        x_mc = np.random.normal(0, 1, size=(n_mcs, self.dim))
+        x_mc = np.random.normal(0, 1, size=(n_mcs, self.input_dim))
         y_mc = self.eval_lstate(x_mc)
         Pf_ref = np.sum(y_mc < 0) / n_mcs
         B_ref = - norm.ppf(Pf_ref)
         return Pf_ref, B_ref
     
     def get_active_points(self, exp_sobol):
-        sampler = qmc.Sobol(d=2, scramble=True)    #d=dimensionality
-        sample = sampler.random_base2(m=6)   #change m=exponent to increase the sample size
+        sampler = qmc.Sobol(d=self.input_dim, scramble=True)    #d=dimensionality
+        sample = sampler.random_base2(m=exp_sobol)   #change m=exponent to increase the sample size
         l_bounds = [-2.0, -2.0]  #design domain for each variable in the physical space
         u_bounds = [2.0, 2.0]
         X_active = qmc.scale(sample, l_bounds, u_bounds)
