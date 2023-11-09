@@ -65,7 +65,7 @@ class g2D_four_branch():
         B_ref = - norm.ppf(Pf_ref)
         return Pf_ref, B_ref
     
-    def get_active_points(self, exp_sobol):
+    def get_doe_points(self, exp_sobol):
         sampler = qmc.Sobol(d=self.input_dim, scramble=True)    #d=dimensionality
         sample = sampler.random_base2(m=exp_sobol)   #change m=exponent to increase the sample size
         l_bounds = [-2.0, -2.0]  #design domain for each variable in the physical space
