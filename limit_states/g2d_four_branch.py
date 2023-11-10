@@ -63,7 +63,7 @@ class g2D_four_branch():
         y_mc = self.eval_lstate(x_mc)
         Pf_ref = np.sum(y_mc < 0) / n_mcs
         B_ref = - norm.ppf(Pf_ref)
-        return Pf_ref, B_ref
+        return Pf_ref, B_ref, x_mc, y_mc
     
     def get_doe_points(self, exp_sobol):
         sampler = qmc.Sobol(d=self.input_dim, scramble=True)    #d=dimensionality
