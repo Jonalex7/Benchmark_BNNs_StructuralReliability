@@ -9,6 +9,6 @@ class ActiveTrain():
         sorted = torch.topk(y_std, int(n_points))
         idx_max_ystd = sorted[1] # Taking the indices of the max std
         x_new = x_mc[idx_max_ystd]
-        x_next = torch.cat( [x, x_new])
+        x_next = torch.cat( (x, x_new))
         return x_next
 
