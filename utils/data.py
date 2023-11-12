@@ -2,8 +2,16 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 def get_dataloader(X, Y, input_dim, output_dim, train_test_split, batch_size):
-    inputs = torch.tensor(X, dtype=torch.float32)
-    targets = torch.tensor(Y.reshape(-1, output_dim), dtype=torch.float32)
+    # Torch array?
+    if not type(X) == torch.Tensor:
+        inputs = torch.tensor(X, dtype=torch.float32)
+    else:
+        inputs = X
+    
+    if not type(Y) == torch.Tensor:
+        targets = torch.tensor(Y.reshape(-1, output_dim), dtype=torch.float32)
+    else:
+        targets = Y.reshape(-1, output_dim)
 
     # Split the data into training and testing sets
     train_size = int(train_test_split * len(inputs))
