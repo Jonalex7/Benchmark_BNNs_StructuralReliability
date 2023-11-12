@@ -17,7 +17,7 @@ class NeuralNetworkWithDropout(nn.Module):
         x = self.fc2(x)
         return x
 
-    def train(self, train_loader, num_epochs, learning_rate):
+    def train(self, train_loader, num_epochs, learning_rate, verbose=0):
         #criterion = nn.CrossEntropyLoss()
         criterion = nn.MSELoss()
         #optimizer = torch.optim.SGD(self.parameters(), lr=learning_rate)
@@ -30,8 +30,8 @@ class NeuralNetworkWithDropout(nn.Module):
                 loss = criterion(outputs, labels)  # Calculate the loss
                 loss.backward()  # Backpropagation
                 optimizer.step()  # Update the weights
-
-            print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item()}')
+            if not verbose == 0:
+                print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item()}')
 
     def predictive_uq(self, x, n_sim):
         x_len = len(x)
