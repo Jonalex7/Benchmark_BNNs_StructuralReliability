@@ -39,7 +39,7 @@ for ep in range(n_train_ep):
 
     Y_uq = net.predictive_uq(X_uq, 100)
     Y_mean = Y_uq.mean(dim=1)
-    print('pf_surrogate ' , (((Y_mean<0).sum()) /torch.tensor(int(mcs_samples))).item() )
+    print('pf_surrogate ' , (((Y_mean<0).sum()) /torch.tensor(mcs_samples)).item() )
     
     X_uq = torch.tensor(X_uq, dtype=torch.float32)
     X_ = act_train.get_active_points(X, X_uq, Y_uq, active_points)
