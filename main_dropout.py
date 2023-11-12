@@ -19,7 +19,7 @@ X = torch.tensor(X_doe, dtype=torch.float32)
 Y = torch.tensor(Y_doe, dtype=torch.float32)
 
 # Neural net config
-net = NeuralNetworkWithDropout(2, 100, 1, 0.3)
+net = NeuralNetworkWithDropout(2, 100, 1, 0.1)
 
 # Active training
 n_train_ep = 20
