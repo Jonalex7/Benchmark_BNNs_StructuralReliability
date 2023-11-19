@@ -29,14 +29,14 @@ class g11d_electric():
         
     def monte_carlo_estimate(self, n_samples):
         n_mcs = int(n_samples)
-        x_mc = np.random.uniform(0.001, 0.999, size=(int(n_mcs), self.input_dim))
-        x_mc_scaled = self.isoprob_transform(x_mc, self.marginals)
+        x_mc_norm = np.random.uniform(0.001, 0.999, size=(int(n_mcs), self.input_dim))
+        x_mc_scaled = self.isoprob_transform(x_mc_norm, self.marginals)
         y_mc = self.eval_lstate(x_mc_scaled)
         Pf_ref = np.sum(y_mc < 0) / n_mcs
         B_ref = - norm.ppf(Pf_ref)
-        return Pf_ref, B_ref, x_mc, y_mc
+        return Pf_ref, B_ref, x_mc_norm, x_mc_scaled, y_mc
 
-    def get_doe_points(self, n_samples, method='lhs'):
+    def get_doe_points(self, n_samples=10, method='lhs'):
         n_passive = int(n_samples)
         if method == 'lhs':
             exp_norm = {}
