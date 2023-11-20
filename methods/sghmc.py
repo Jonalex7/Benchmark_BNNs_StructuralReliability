@@ -93,6 +93,40 @@ class BNN_SGHMC():  # for regression
         err = pred.ne(y.data).sum()
 
         return loss.data * x.shape[0] / self.N_train #, err
+    
+    def train(self, train_loader, epoch=50, burn_in=10, re_burn = 1e8 , 
+              resample_its=50, resample_prior_its = 15, sim_steps = 2, N_saves=10, verbose=0):
+        it_count = 0
+        n_epochs = int(epoch)
+        cost_train = np.zeros(n_epochs)
+
+        for ep in range(0, n_epochs):
+
+            self.set_mode_train(True)
+            nb_samples = 0
+
+            for x, y in train_loader:
+
+                cost_pred = self.fit(x, y, burn_in=(ep % re_burn < burn_in), 
+                            resample_momentum=(it_count % resample_its == 0),
+                            resample_prior=(it_count % resample_prior_its == 0))
+       
+                it_count += 1
+                cost_train[ep] += cost_pred
+                nb_samples += len(x)
+
+            cost_train[ep] /= nb_samples
+            self.update_lr(ep)
+
+            if not verbose == 0:
+                print("it %d/%d, train_loss = %f," % (ep, n_epochs, cost_train[ep]))
+        
+            if ep % re_burn >= burn_in and ep % sim_steps == 0:
+                self.save_sampled_net(max_samples=N_saves)
+
+        print("train_loss = %f," % (cost_train[ep]), end=" ")
+
+        return
 
     def eval(self, x, y, train=False):
         self.set_mode_train(train=False)
