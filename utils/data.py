@@ -24,8 +24,6 @@ def get_dataloader(X, Y, input_dim, output_dim, train_test_split, batch_size):
     test_targets = targets[train_size:]
 
     # Create data loaders for training and testing
-    batch_size = 16
-
     train_dataset = TensorDataset(train_inputs, train_targets)
     test_dataset = TensorDataset(test_inputs, test_targets)
 
