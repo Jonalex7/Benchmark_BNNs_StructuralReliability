@@ -18,7 +18,7 @@ class FFN_block(nn.Module):
         return x
     
 class Ensemble(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_models, num_epochs=10):
+    def __init__(self, input_size, hidden_size, output_size, num_models):
         super(Ensemble, self).__init__()
         self.num_models = num_models
         self.models = nn.ModuleList([FFN_block(input_size, hidden_size, output_size) for _ in range(num_models)])
