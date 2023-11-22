@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class FFN_block(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, dropout_prob):
+    def __init__(self, input_size, hidden_size, output_size):
         super(FFN_block, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)  # Input layer to hidden layer
         self.relu = nn.ReLU()  # Activation function
