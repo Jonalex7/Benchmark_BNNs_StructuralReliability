@@ -47,3 +47,13 @@ class Ensemble(nn.Module):
                 ensemble_predictions.append(ensemble_mean)
         self.train()
         return torch.cat(ensemble_predictions, dim=0)
+    
+    def predictive_uq(self, x):
+        x_len = len(x)
+        y_random = torch.empty(x_len, self.num_models)
+        idx = 0
+        with torch.no_grad():
+            for model in self.models:
+                y_random[:, idx] = model(x).reshape(-1)
+                idx += 1
+        return y_random
