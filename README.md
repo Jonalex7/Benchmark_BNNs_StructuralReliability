@@ -6,8 +6,8 @@
 - [x] MC Dropout - torch version
 - [x] SGHMCM - torch version
 - [x] Limit states adapted as classes
-- [ ] Ensemble - torch version
+- [x] Ensemble - torch version
+- [x] Bayes by backprop - torch version
 - [ ] Active training modalities
-- [ ] Bayes by backprop - torch version
 - [ ] Config and experiments logger 
 - [ ] Requirements file
