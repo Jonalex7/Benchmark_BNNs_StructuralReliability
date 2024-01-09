@@ -1,5 +1,12 @@
 # --- Defaults ---
 
+reliability_config_dict = {
+    "limit_state": 'g11d_electric',
+    "mcs_samples": 1e6,
+    "active_points": 5,
+    "active_epochs": 10
+}
+
 model_config_dict = {
     "passive_samples": 100,
     "training_epochs": 100,
@@ -8,11 +15,7 @@ model_config_dict = {
     "batch_size": 64
 }
 
-reliability_config_dict = {
-    "mcs_samples": 1e6,
-    "active_points": 5,
-    "active_epochs": 10
-}
+
 
 # # --- Model configuration ---
 # passive_samples: 10 # Initial samples for DoE

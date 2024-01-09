@@ -1,5 +1,5 @@
 import numpy as np
-from limit_states.g11d_electric import g11d_electric
+from limit_states import REGISTRY as ls_REGISTRY
 from methods.sghmc import *
 from utils.data import get_dataloader
 from active_training.active_train import ActiveTrain
@@ -23,7 +23,7 @@ results_file = args.res_file
 
 os.makedirs(results_dir)
 
-lstate = g11d_electric()
+lstate = ls_REGISTRY[reliability_config_dict['limit_state']]()
 act_train = ActiveTrain()
 mcs_samples = int(reliability_config_dict['mcs_samples'])
 pf, beta, _, _, y_mc_test = lstate.monte_carlo_estimate(mcs_samples)
