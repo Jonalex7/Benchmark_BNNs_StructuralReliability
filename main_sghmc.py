@@ -21,7 +21,8 @@ args = parser.parse_args()
 results_dir = args.res_dir
 results_file = args.res_file
 
-os.makedirs(results_dir)
+if not os.path.exists(results_dir):
+    os.makedirs(results_dir)
 
 lstate = ls_REGISTRY[reliability_config_dict['limit_state']]()
 act_train = ActiveTrain()
@@ -87,7 +88,9 @@ for act_ep in range(n_active_ep):
     x_scaled = lstate.isoprob_transform(x_norm, lstate.marginals)
     y_scaled = lstate.eval_lstate(x_scaled)
 
-results_dict[str(len(x_train))+'_doepoints'] = x_train, y_train
-pickle.dump(results_dict, open(results_dir+'/'+results_file, 'wb'))
+results_dict[str(len(x_train)) + '_doepoints'] = x_train, y_train
+
+with open(results_dir + '/' + results_file + ".pkl", 'wb') as file_id:
+    pickle.dump(results_dict, file_id)
 
 print('End training')
