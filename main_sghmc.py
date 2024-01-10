@@ -4,9 +4,10 @@ import pickle
 import argparse
 import torch.utils.data as data
 import numpy as np
+import torch
 
 from limit_states import REGISTRY as ls_REGISTRY
-from methods.sghmc import *
+from methods.sghmc import BNN_SGHMC
 from utils.data import get_dataloader
 from active_training.active_train import ActiveTrain
 from config.defaults import reliability_config_dict, model_config_dict
@@ -14,8 +15,8 @@ from config.defaults import reliability_config_dict, model_config_dict
 parser = argparse.ArgumentParser(description='Active train BNN with Stochastic Gradient HMC')
 
 # To do: check backslash in windows & unix
-parser.add_argument('--res_dir', type=str, nargs='?', action='store', default='results\SGHMC_results',
-                    help='Where to save predicted Pf results. Default: \'results\SGHMC_results\'.')
+parser.add_argument('--res_dir', type=str, nargs='?', action='store', default='results/SGHMC_results',
+                    help='Where to save predicted Pf results. Default: \'results/SGHMC_results\'.')
 parser.add_argument('--res_file', type=str, nargs='?', action='store', default='SGHMC',
                     help='Pf results file name. Default: \'SGHMC\'.')
 args = parser.parse_args()
@@ -32,7 +33,7 @@ if not os.path.exists(results_dir):
 if model_config_dict['seed'] is not None:
     seed_experiment = model_config_dict['seed']
 else:
-    seed_experiment = np.random.randint(0, 2**32 - 1)
+    seed_experiment = np.random.randint(0, 2**30 - 1)
 np.random.seed(seed_experiment)
 torch.manual_seed(seed_experiment)
 

@@ -15,16 +15,3 @@ model_config_dict = {
     "batch_size": 64,
     "seed": None
 }
-
-
-
-# # --- Model configuration ---
-# passive_samples: 10 # Initial samples for DoE
-# training_epochs: 1000 # Number of training epochs 
-# network_architecture: (2, 100, 2, 1) # Input, width, layers, output sizes
-# lr: 0.1 # Learning rate
-# batch_size: 32 # Batch size for each epoch
-# active_points: 5 # Number of new labelled points
-
-# # --- Reliability settings ---
-# mcs_samples: int(1e6) # Size of Monte carlo population
