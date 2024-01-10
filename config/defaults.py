@@ -12,7 +12,7 @@ model_config_dict = {
     "training_epochs": 100,
     "network_architecture": (2, 20, 2, 1),
     "lr": 1e-2,
-    "batch_size": 64
+    "batch_size": 64,
     "seed": None
 }
 
