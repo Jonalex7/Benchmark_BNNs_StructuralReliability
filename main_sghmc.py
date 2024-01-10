@@ -1,18 +1,19 @@
+import os
+from datetime import datetime
+import pickle
+import argparse
+import torch.utils.data as data
 import numpy as np
+
 from limit_states import REGISTRY as ls_REGISTRY
 from methods.sghmc import *
 from utils.data import get_dataloader
 from active_training.active_train import ActiveTrain
-from config.defaults import *
-import torch.utils.data as data
-import pickle
-import argparse
-import os
-from datetime import datetime
-
+from config.defaults import reliability_config_dict, model_config_dict
 
 parser = argparse.ArgumentParser(description='Active train BNN with Stochastic Gradient HMC')
 
+# To do: check backslash in windows & unix
 parser.add_argument('--res_dir', type=str, nargs='?', action='store', default='results\SGHMC_results',
                     help='Where to save predicted Pf results. Default: \'results\SGHMC_results\'.')
 parser.add_argument('--res_file', type=str, nargs='?', action='store', default='SGHMC',
