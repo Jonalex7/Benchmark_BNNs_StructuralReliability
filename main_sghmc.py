@@ -27,6 +27,15 @@ date_time_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 if not os.path.exists(results_dir):
     os.makedirs(results_dir)
 
+# Seed definition
+if model_config_dict['seed'] is not None:
+    seed_experiment = model_config_dict['seed']
+else:
+    seed_experiment = np.random.randint(0, 2**32 - 1)
+np.random.seed(seed_experiment)
+torch.manual_seed(seed_experiment)
+
+
 lstate = ls_REGISTRY[reliability_config_dict['limit_state']]()
 act_train = ActiveTrain()
 mcs_samples = int(reliability_config_dict['mcs_samples'])
