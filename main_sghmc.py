@@ -8,6 +8,8 @@ import torch.utils.data as data
 import pickle
 import argparse
 import os
+from datetime import datetime
+
 
 parser = argparse.ArgumentParser(description='Active train BNN with Stochastic Gradient HMC')
 
@@ -20,6 +22,7 @@ args = parser.parse_args()
 # Directory to save results
 results_dir = args.res_dir
 results_file = args.res_file
+date_time_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 if not os.path.exists(results_dir):
     os.makedirs(results_dir)
@@ -90,7 +93,7 @@ for act_ep in range(n_active_ep):
 
 results_dict[str(len(x_train)) + '_doepoints'] = x_train, y_train
 
-with open(results_dir + '/' + results_file + ".pkl", 'wb') as file_id:
+with open(results_dir + '/' + results_file + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
     pickle.dump(results_dict, file_id)
 
 print('End training')
