@@ -101,6 +101,8 @@ for act_ep in range(n_active_ep):
     y_scaled = lstate.eval_lstate(x_scaled)
 
 results_dict[str(len(x_train)) + '_doepoints'] = x_train, y_train
+# Storing seed for reproducibility
+results_dict['seed'] = seed_experiment
 
 with open(results_dir + '/' + results_file + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
     pickle.dump(results_dict, file_id)
