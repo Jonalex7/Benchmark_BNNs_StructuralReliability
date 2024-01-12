@@ -8,7 +8,7 @@ import torch
 
 from limit_states import REGISTRY as ls_REGISTRY
 from methods.sghmc import BNN_SGHMC
-from utils.data import get_dataloader
+from utils.data import get_dataloader, isoprob_transform
 from active_training.active_train import ActiveTrain
 from config.defaults import reliability_config_dict, model_config_dict
 
@@ -40,10 +40,11 @@ torch.manual_seed(seed_experiment)
 
 lstate = ls_REGISTRY[reliability_config_dict['limit_state']]()
 act_train = ActiveTrain()
+print('Target limit state: ', reliability_config_dict['limit_state'])
 mcs_samples = int(reliability_config_dict['mcs_samples'])
-pf, beta, _, _, y_mc_test = lstate.monte_carlo_estimate(mcs_samples)
+pf, beta, _, y_mc_test = lstate.monte_carlo_estimate(mcs_samples)
 y_max = np.max(y_mc_test)   #to normalise the output for training
-print('ref PF:', pf, 'B:',beta)
+print('ref. PF:', pf, 'B:',beta)
 
 #Passive training
 passive_samples = model_config_dict['passive_samples'] 
@@ -51,13 +52,13 @@ x_norm, x_scaled, y_scaled = lstate.get_doe_points(n_samples=passive_samples, me
 batch_size = model_config_dict['batch_size']
 
 #network config
-width, layers = model_config_dict['network_architecture'][1], model_config_dict['network_architecture'][2]
+width, layers = model_config_dict['network_architecture'][0], model_config_dict['network_architecture'][1]
 learning_rate = model_config_dict['lr'] 
 
 # Active training
 use_cuda = torch.cuda.is_available()
 n_active_ep = reliability_config_dict['active_epochs']
-active_points = reliability_config_dict['active_points']
+active_points = reliability_config_dict['active_samples']
 training_epochs = model_config_dict['training_epochs']
 
 burn_in = 20   #How many epochs to burn in for?. Default: 20.
@@ -71,8 +72,8 @@ results_dict = {}
 
 for act_ep in range(n_active_ep):
 
-    x_train = torch.tensor(x_norm, dtype=torch.float32).view(-1, lstate.input_dim)
-    y_train = torch.tensor(y_scaled/y_max, dtype=torch.float32).view(-1, lstate.output_dim)  #normalised output
+    x_train = torch.tensor(x_norm, dtype=torch.float32).view(-1, lstate.input_dim) 
+    y_train = torch.tensor(y_scaled/y_max, dtype=torch.float32).view(-1, lstate.output_dim)   #normalised output
     
     print('Samples: ', x_train.shape[0], end=" ")
     
@@ -85,21 +86,21 @@ for act_ep in range(n_active_ep):
                 resample_its=resample_its, resample_prior_its = resample_prior_its, 
                 sim_steps = sim_steps, N_saves=N_saves, verbose=0)
         
-    Pf_ref, B_ref, x_mc_norm, x_mc_scaled, _ = lstate.monte_carlo_estimate(mcs_samples)
+    Pf_ref, B_ref, x_mc_norm,_ = lstate.monte_carlo_estimate(mcs_samples)
     X_uq = torch.tensor(x_mc_norm, dtype=torch.float32)
 
     print('pf_ref', Pf_ref, end=" ")
 
     y_bnn_pred = net.sample_predict(X_uq, Nsamples=N_saves)
     y_bnn_mean = torch.mean(y_bnn_pred, 0)
-    y_bnn_std = torch.std(y_bnn_pred, 0)
+    # y_bnn_std = torch.std(y_bnn_pred, 0)
     pf_sumo = (((y_bnn_mean<0).sum()) / torch.tensor(mcs_samples)).item()
 
     print('pf_surrogate ' , pf_sumo)
     results_dict['pf_'+ str(len(x_train))] = pf_sumo #, B_sumo
 
     x_norm = act_train.get_active_points(x_train, X_uq, y_bnn_pred.view(-1, N_saves), active_points)
-    x_scaled = lstate.isoprob_transform(x_norm, lstate.marginals)
+    x_scaled = isoprob_transform(x_norm, lstate.marginals)
     y_scaled = lstate.eval_lstate(x_scaled)
 
 results_dict[str(len(x_train)) + '_doepoints'] = x_train, y_train
