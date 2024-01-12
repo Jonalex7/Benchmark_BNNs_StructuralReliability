@@ -36,6 +36,7 @@ class Ensemble(nn.Module):
                 self.optimizer.step()
             if not verbose == 0:
                 print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item()}')
+        print("train_loss = %f," % (loss.item()), end=" ")
 
     def predict_ensemble(self, data_loader):
         self.eval()

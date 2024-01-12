@@ -1,8 +1,8 @@
 import torch
 from torch.utils.data import DataLoader, TensorDataset
+from scipy.stats import norm, uniform, lognorm
 
 def get_dataloader(X, Y, input_dim, output_dim, train_test_split, batch_size):
-    # Torch array?
     if not type(X) == torch.Tensor:
         inputs = torch.tensor(X, dtype=torch.float32)
     else:
@@ -31,3 +31,30 @@ def get_dataloader(X, Y, input_dim, output_dim, train_test_split, batch_size):
     test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, test_loader
+
+def isoprob_transform (x_normalised, marginals):
+    input_dim = x_normalised.shape[1]
+    x_normalised = torch.tensor(x_normalised)
+    x_scaled = torch.zeros(x_normalised.shape[0], input_dim)
+
+    for margin in range (0, input_dim):
+        var = 'x' + str (margin + 1)
+        if marginals[var][2] == 'normal':
+            loc_ = marginals[var][0]
+            scale_ = marginals[var][1]
+            x_scaled[:, margin] = torch.tensor(norm.ppf(x_normalised[:, margin], loc=loc_, scale=scale_))
+
+        elif marginals[var][2] == 'uniform':
+            loc_ = marginals[var][0]
+            scale_ = marginals[var][1]
+            x_scaled[:, margin] = torch.tensor(uniform.ppf(x_normalised[:, margin], loc=loc_, scale=scale_-loc_))
+
+        elif marginals[var][2] == 'lognormal':
+            xlog_mean = torch.tensor(marginals[var][0])
+            xlog_std = torch.tensor(marginals[var][1])
+            # converting lognormal mean and std. dev.
+            SigmaLogNormal = torch.sqrt( torch.log(1+(xlog_std/xlog_mean)**2))
+            MeanLogNormal = torch.log(xlog_mean) - SigmaLogNormal**2/2
+            x_scaled[:, margin] = torch.tensor(lognorm.ppf(x_normalised[:, margin], s=SigmaLogNormal, scale=xlog_mean)) 
+    
+    return x_scaled
