@@ -2,12 +2,12 @@ import numpy as np
 from doepy import build
 import pandas as pd
 from scipy.stats import norm, uniform, lognorm
-# Reliability analysis and optimal design under uncertainty Focus on adaptive surrogate-based approaches
-# Jean-Marc Bourinet
-# A–1 Example 1
-# This reliability problem is studied by Kouassi et al. (2016) in the field on electromagnetic compatibility.
-# It investigates a lossy transmission line of length L, diameter d and attenuation coefficient alpha such
-# as defined by Rannou et al. (2002)
+from utils.data import isoprob_transform
+
+'''Reliability analysis and optimal design under uncertainty Focus on adaptive surrogate-based approaches. Jean-Marc Bourinet A–1 Example 1
+This reliability problem is studied by Kouassi et al. (2016) in the field on electromagnetic compatibility.
+It investigates a lossy transmission line of length L, diameter d and attenuation coefficient alpha such
+as defined by Rannou et al. (2002)'''
 
 class g11d_electric():
     def __init__(self):
@@ -29,12 +29,12 @@ class g11d_electric():
         
     def monte_carlo_estimate(self, n_samples):
         n_mcs = int(n_samples)
-        x_mc_norm = np.random.uniform(0.001, 0.999, size=(int(n_mcs), self.input_dim))
-        x_mc_scaled = self.isoprob_transform(x_mc_norm, self.marginals)
+        x_mc_norm = np.random.uniform(0, 1, size=(int(n_mcs), self.input_dim))
+        x_mc_scaled = isoprob_transform(x_mc_norm, self.marginals)
         y_mc = self.eval_lstate(x_mc_scaled)
         Pf_ref = np.sum(y_mc < 0) / n_mcs
         B_ref = - norm.ppf(Pf_ref)
-        return Pf_ref, B_ref, x_mc_norm, x_mc_scaled, y_mc
+        return Pf_ref, B_ref, x_mc_norm, y_mc
 
     def get_doe_points(self, n_samples=10, method='lhs'):
         n_passive = int(n_samples)
@@ -46,45 +46,11 @@ class g11d_electric():
             x_doe = build.space_filling_lhs(exp_norm , num_samples = n_passive)  #Latin hypercube sampling
             x_norm = pd.DataFrame.to_numpy(x_doe)
 
-            x_scaled = self.isoprob_transform(x_norm, self.marginals)
+            x_scaled = isoprob_transform(x_norm, self.marginals)
             y_scaled = self.eval_lstate(x_scaled)
 
         return x_norm, x_scaled, y_scaled
     
-    def convert_lognormal(self, mean_ln, std_ln):
-        gaussian_param = np.zeros(2)
-
-        SigmaLogNormal = np.sqrt( np.log(1+(std_ln/mean_ln)**2))
-        MeanLogNormal = np.log( mean_ln ) - SigmaLogNormal**2/2
-
-        gaussian_param[0] = MeanLogNormal
-        gaussian_param[1] = SigmaLogNormal
-
-        return gaussian_param
-    
-    def isoprob_transform (self, x_normalised, marginals):
-        x_scaled = np.zeros((len(x_normalised), self.input_dim))
-
-        for margin in range (0, self.input_dim):
-            var = 'x' + str (margin + 1)
-            if marginals[var][2] == 'normal':
-                loc_ = marginals[var][0]
-                scale_ = marginals[var][1]
-                x_scaled[:, margin] = norm.ppf(x_normalised[:, margin], loc=loc_, scale=scale_)
-
-            elif marginals[var][2] == 'uniform':
-                loc_ = marginals[var][0]
-                scale_ = marginals[var][1]
-                x_scaled[:, margin] = uniform.ppf(x_normalised[:, margin], loc=loc_, scale=scale_-loc_)
-
-            elif marginals[var][2] == 'lognormal':
-                xlog_mean = marginals[var][0]
-                xlog_std = marginals[var][1]
-                gaussian_param = self.convert_lognormal(xlog_mean, xlog_std)
-                x_scaled[:, margin] = lognorm.ppf(x_normalised[:, margin], s=gaussian_param[1], scale=xlog_mean) 
-        
-        return x_scaled
-
     def eval_lstate(self, x):
         X = np.array(x, dtype='f')
 
