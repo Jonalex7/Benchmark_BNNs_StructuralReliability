@@ -1,25 +1,56 @@
+import os
 import numpy as np
-from scipy.stats import norm, uniform, lognorm
-from scipy.stats import qmc 
 import torch
+from datetime import datetime
+import pickle
+import argparse
+
+from limit_states import REGISTRY as ls_REGISTRY
 from methods.mc_droput import NeuralNetworkWithDropout
-from utils.data import get_dataloader
-from limit_states.g2d_four_branch import g2D_four_branch
+from utils.data import get_dataloader, isoprob_transform
 from active_training.active_train import ActiveTrain
+from config.defaults_dropout import reliability_config_dict, model_config_dict
+
+parser = argparse.ArgumentParser(description='Active train Dropout NN')
+
+parser.add_argument('--res_dir', type=str, nargs='?', action='store', default='results/dropout_results',
+                    help='Where to save predicted Pf results. Default: \'results/dropout_results\'.')
+parser.add_argument('--res_file', type=str, nargs='?', action='store', default='dropout',
+                    help='Pf results file name. Default: \'dropout\'.')
+args = parser.parse_args()
+
+# Directory to save results
+results_dir = args.res_dir
+results_file = args.res_file
+date_time_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+if not os.path.exists(results_dir):
+    os.makedirs(results_dir)
+
+# Seed definition
+if model_config_dict['seed'] is not None:
+    seed_experiment = model_config_dict['seed']
+else:
+    seed_experiment = np.random.randint(0, 2**30 - 1)
+np.random.seed(seed_experiment)
+torch.manual_seed(seed_experiment)
 
 # Loading
-lstate = g2D_four_branch()
+lstate = ls_REGISTRY[reliability_config_dict['limit_state']]()
 act_train = ActiveTrain()
-beta, pf, _, _ = lstate.monte_carlo_estimate(1e6)
-print('ref: values', beta, pf)
+print('Target limit state: ', reliability_config_dict['limit_state'])
+mcs_samples = int(reliability_config_dict['mcs_samples'])
+pf, beta, _, y_mc_test = lstate.monte_carlo_estimate(mcs_samples)
+print('ref. PF:', pf, 'B:',beta)
 
 # Passive training
-X_doe, Y_doe = lstate.get_doe_points(5)
+passive_samples = model_config_dict['passive_samples'] 
+X_doe, X_scaled, Y_doe = lstate.get_doe_points(5)
 X = torch.tensor(X_doe, dtype=torch.float32)
 Y = torch.tensor(Y_doe, dtype=torch.float32)
 
 # Neural net config
-net = NeuralNetworkWithDropout(2, 100, 1, 0.1)
+net = NeuralNetworkWithDropout(2, 100, 2, 1, 0.1)
 
 # Active training
 n_train_ep = 20
