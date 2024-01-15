@@ -22,19 +22,20 @@ class MLP(nn.Module):
         return self.block(x)
     
 class Ensemble(nn.Module):
-    def __init__(self, input_size, hidden_size, depth, output_size, num_models, learning_rate):
+    def __init__(self, input_size, hidden_size, depth, output_size, num_models):
         super(Ensemble, self).__init__()
         self.num_models = num_models
         self.models = nn.ModuleList([MLP(input_size, hidden_size, depth, output_size) for _ in range(num_models)])
+
+    def train_ensemble(self, train_loader, num_epochs, learning_rate, verbose=0):
         self.criterion = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
 
-    def train_ensemble(self, train_loader, num_epochs, verbose=0):
         for epoch in range(num_epochs):
             for inputs, targets in train_loader:
                 self.optimizer.zero_grad()
                 ensemble_outputs = torch.stack([model(inputs) for model in self.models])
-                ensemble_mean = torch.mean(ensemble_outputs, dim=0)
+                ensemble_mean = torch.mean(ensemble_outputs, dim=0)  #check loss
                 loss = self.criterion(ensemble_mean, targets)
                 loss.backward()
                 self.optimizer.step()

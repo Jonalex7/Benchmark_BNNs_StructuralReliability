@@ -55,7 +55,7 @@ batch_size = model_config_dict['batch_size']
 split_train_test = model_config_dict['split_train_test']
 verbose = model_config_dict['verbose']
 
-net = Ensemble(lstate.input_dim, width, layers, lstate.output_dim, n_ensembles, learning_rate)
+net = Ensemble(lstate.input_dim, width, layers, lstate.output_dim, n_ensembles)
 
 # Active training
 use_cuda = torch.cuda.is_available()  #not used
@@ -75,7 +75,7 @@ for ep in range(n_active_ep):
 
     train_loader, _ = get_dataloader(x_train, y_train, lstate.input_dim, lstate.output_dim, split_train_test, batch_size)
 
-    net.train_ensemble(train_loader, training_epochs, verbose)
+    net.train_ensemble(train_loader, training_epochs, learning_rate, verbose)
 
     Pf_ref, B_ref, x_mc_norm, _ = lstate.monte_carlo_estimate(mcs_samples)
     print('pf_ref ', Pf_ref, end=" ")
