@@ -1,7 +1,7 @@
 # --- Defaults ---
 
 reliability_config_dict = {
-    "limit_state": 'g2d_himmelblau',
+    "limit_state": 'g2d_four_branch',
     "mcs_samples": 1e6,
     "active_samples": 1,
     "active_epochs": 10
@@ -9,6 +9,7 @@ reliability_config_dict = {
 
 model_config_dict = {
     "dropout_probability": 0.1,
+    "n_simulations": 100,
     "passive_samples": 50,
     "training_epochs": 1000,
     "network_architecture": (30, 2),

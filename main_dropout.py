@@ -41,44 +41,63 @@ act_train = ActiveTrain()
 print('Target limit state: ', reliability_config_dict['limit_state'])
 mcs_samples = int(reliability_config_dict['mcs_samples'])
 pf, beta, _, y_mc_test = lstate.monte_carlo_estimate(mcs_samples)
+y_max = np.max(y_mc_test)   #to normalise the output for training
 print('ref. PF:', pf, 'B:',beta)
 
 # Passive training
 passive_samples = model_config_dict['passive_samples'] 
-X_doe, X_scaled, Y_doe = lstate.get_doe_points(5)
-X = torch.tensor(X_doe, dtype=torch.float32)
-Y = torch.tensor(Y_doe, dtype=torch.float32)
+x_norm, x_scaled, y_scaled = lstate.get_doe_points(n_samples=passive_samples, method='lhs')
+
 
 # Neural net config
-net = NeuralNetworkWithDropout(2, 100, 2, 1, 0.1)
+width, layers = model_config_dict['network_architecture'][0], model_config_dict['network_architecture'][1]
+dropout_prob = model_config_dict['dropout_probability']
+learning_rate = model_config_dict['lr'] 
+batch_size = model_config_dict['batch_size']
+split_train_test = model_config_dict['split_train_test']
+verbose = model_config_dict['verbose']
+n_sim = model_config_dict['n_simulations']
+
+net = NeuralNetworkWithDropout(lstate.input_dim, width, layers, lstate.output_dim, dropout_prob)
 
 # Active training
-n_train_ep = 20
-active_points = 10
-mcs_samples = int(1e5)
-for ep in range(n_train_ep):
+use_cuda = torch.cuda.is_available()  #not used
+training_epochs = model_config_dict['training_epochs']
+n_active_ep = reliability_config_dict['active_epochs']
+active_points = reliability_config_dict['active_samples']
+
+results_dict = {}
+
+for ep in range(n_active_ep):
+
+    x_train = torch.tensor(x_norm, dtype=torch.float32).view(-1, lstate.input_dim) 
+    y_train = torch.tensor(y_scaled, dtype=torch.float32).view(-1, lstate.output_dim) 
+    # y_train = torch.tensor(y_scaled/y_max, dtype=torch.float32).view(-1, lstate.output_dim)   #normalised output    
     
-    print('Samples: ', X.shape[0])
-    train_loader, test_loader = get_dataloader(X, Y, lstate.input_dim, lstate.output_dim, 1.0, 16)
+    print('Samples: ', x_train.shape[0], end=" ")
+    train_loader, _ = get_dataloader(x_train, y_train, lstate.input_dim, lstate.output_dim, split_train_test, batch_size)
 
-    #net = NeuralNetworkWithDropout(2, 100, 1, 0.3)
-    net.train(train_loader, 1000, 1e-4)
+    net.train(train_loader, training_epochs, learning_rate)
 
-    pf_mc, _, X_mc, Y_mc = lstate.monte_carlo_estimate(mcs_samples)
-    print('pf ', pf_mc)
-    X_uq = torch.tensor(X_mc, dtype=torch.float32)
+    Pf_ref, B_ref, x_mc_norm, _ = lstate.monte_carlo_estimate(mcs_samples)
+    print('pf_ref ', Pf_ref, end=" ")
+    X_uq = torch.tensor(x_mc_norm, dtype=torch.float32)
 
-    Y_uq = net.predictive_uq(X_uq, 100)
+    Y_uq = net.predictive_uq(X_uq, n_sim)
     Y_mean = Y_uq.mean(dim=1)
-    print('pf_surrogate ' , (((Y_mean<0).sum()) /torch.tensor(mcs_samples)).item() )
+    pf_sumo = (((Y_mean<0).sum()) /torch.tensor(mcs_samples)).item()
+    print('pf_surrogate ' , pf_sumo)
+    results_dict['pf_'+ str(len(x_train))] = pf_sumo #, B_sumo
     
-    X_uq = torch.tensor(X_uq, dtype=torch.float32)
-    X_ = act_train.get_active_points(X, X_uq, Y_uq, active_points)
+    x_norm = act_train.get_active_points(x_train, X_uq, Y_uq, active_points)
+    x_scaled = isoprob_transform(x_norm, lstate.marginals)
+    y_scaled = lstate.eval_lstate(x_scaled)
 
-    Y_ = lstate.eval_lstate(X_)
-    Y_ = torch.tensor(Y_, dtype=torch.float32)
+results_dict[str(len(x_train)) + '_doepoints'] = x_train, y_train
+# Storing seed for reproducibility
+results_dict['seed'] = seed_experiment
 
-    X = X_
-    Y = Y_
+with open(results_dir + '/' + results_file + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
+    pickle.dump(results_dict, file_id)
 
 print('End training')
