@@ -11,7 +11,7 @@ model_config_dict = {
     "n_ensembles": 5,
     "passive_samples": 20,
     "training_epochs": 1000,
-    "network_architecture": (50, 2),
+    "network_architecture": (10, 2),
     "lr": 1e-2,
     "batch_size": 34,
     "verbose": 0,
