@@ -26,18 +26,6 @@ class NeuralNetworkWithDropout(nn.Module):
     def __init__(self, input_size, width, depth, output_size, dropout_prob):
         super(NeuralNetworkWithDropout, self).__init__()
         self.model = MLP_dropout(input_size, width, depth, output_size, dropout_prob)
-        # self.fc1 = nn.Linear(input_size, hidden_size)  # Input layer to hidden layer
-        # self.relu = nn.ReLU()  # Activation function
-        # self.dropout = nn.Dropout(dropout_prob)  # Dropout layer
-        # self.fc2 = nn.Linear(hidden_size, output_size)  # Hidden layer to output layer
-
-    # def forward(self, x):
-    #     # Forward pass
-    #     x = self.fc1(x)
-    #     x = self.relu(x)
-    #     x = self.dropout(x)
-    #     x = self.fc2(x)
-    #     return x
 
     def train(self, train_loader, num_epochs, learning_rate, verbose=0):
         #criterion = nn.CrossEntropyLoss()

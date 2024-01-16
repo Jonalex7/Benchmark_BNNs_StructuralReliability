@@ -4,24 +4,77 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 # Bayesian neural network with class to build Bayesian Layers with Pytorch
-# only 1 layer
 
-class BNN_BPP(nn.Module):
-    def __init__(self, input_size, hidden_sizes, output_size):
-        super(BNN_BPP, self).__init__()
+class BayesianLayer(nn.Module):
+    def __init__(self, in_features, out_features):
+        super(BayesianLayer, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.weight_rho = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.bias_mu = nn.Parameter(torch.Tensor(out_features))
+        self.bias_rho = nn.Parameter(torch.Tensor(out_features))
+        self.reset_parameters()
+        
+    def reset_parameters(self):
+        nn.init.kaiming_normal_(self.weight_mu, mode='fan_in', nonlinearity='relu')
+        nn.init.constant_(self.weight_rho, -6)  # Initialize log variance to a small value
+        nn.init.zeros_(self.bias_mu)
+        nn.init.constant_(self.bias_rho, -6)
+
+    def forward(self, x):
+        weight_sigma = torch.log1p(torch.exp(self.weight_rho))
+        bias_sigma = torch.log1p(torch.exp(self.bias_rho))
+        epsilon_weight = Variable(torch.randn_like(weight_sigma))
+        epsilon_bias = Variable(torch.randn_like(bias_sigma))
+        weight = self.weight_mu + weight_sigma * epsilon_weight
+        bias = self.bias_mu + bias_sigma * epsilon_bias
+        output = F.linear(x, weight, bias)
+        return output, weight, bias
+    
+    def extra_repr(self) -> str:
+        return f'in_features={self.in_features}, out_features={self.out_features}'
+    
+class BayesianNeuralNetwork(nn.Module):
+    def __init__(self, input_dim, width, depth, output_dim):
+        super(BayesianNeuralNetwork, self).__init__()
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.width = width
+        self.depth = depth
+
+        layers = [BayesianLayer(input_dim, width), nn.ReLU()]
+        for i in range(depth - 1):
+            layers.append(BayesianLayer(width, width))
+            layers.append(nn.ReLU())
+        layers.append(BayesianLayer(width, output_dim))
+
+        self.block = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.block(x)
+    
+class BNN_BayesBackProp(nn.Module):
+    def __init__(self, input_size, hidden_sizes, hidden_layers, output_size):
+        super(BNN_BayesBackProp, self).__init__()
         self.input_size = input_size
         self.hidden_sizes = hidden_sizes
+        self.hidden_layers = hidden_layers
         self.output_size = output_size
+
+        self.model = BayesianNeuralNetwork(self.input_size, self.hidden_sizes, self.hidden_layers, self.output_size)
+
         
-        # Define the Bayesian neural network architecture
-        self.fc_mu_1 = BayesianLayer(input_size, hidden_sizes)
-        self.fc_mu_2 = BayesianLayer(hidden_sizes, output_size)
+    #     # Define the Bayesian neural network architecture
+    #     self.fc_mu_1 = BayesianLayer(input_size, hidden_sizes)
+    #     self.fc_mu_2 = BayesianLayer(hidden_sizes, output_size)
         
-    def forward(self, x):
-        hidden_out, _ , _ = self.fc_mu_1(x)
-        hidden_out  = F.relu(hidden_out)
-        output , _ , _  = self.fc_mu_2(hidden_out)
-        return output
+    # def forward(self, x):
+    #     hidden_out, _ , _ = self.fc_mu_1(x)
+    #     hidden_out  = F.relu(hidden_out)
+    #     output , _ , _  = self.fc_mu_2(hidden_out)
+    #     return output
 
     def train(self, train_loader, num_epochs=10, lr=1e-3, kl_scale=10, verbose=0):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
@@ -73,37 +126,3 @@ class BNN_BPP(nn.Module):
         return p_count
     
 
-class BayesianLayer(nn.Module):
-    def __init__(self, in_features, out_features):
-        super(BayesianLayer, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
-        self.weight_rho = nn.Parameter(torch.Tensor(out_features, in_features))
-        self.bias_mu = nn.Parameter(torch.Tensor(out_features))
-        self.bias_rho = nn.Parameter(torch.Tensor(out_features))
-        self.reset_parameters()
-        
-    def reset_parameters(self):
-        nn.init.kaiming_normal_(self.weight_mu, mode='fan_in', nonlinearity='relu')
-        nn.init.constant_(self.weight_rho, -6)  # Initialize log variance to a small value
-        nn.init.zeros_(self.bias_mu)
-        nn.init.constant_(self.bias_rho, -6)
-
-    # def reset_parameters(self):
-    #     # Initialize weights and biases with normal distribution
-    #     nn.init.normal_(self.weight_mu, mean=0, std=0.1)
-    #     nn.init.normal_(self.weight_rho, mean=-3, std=0.1)
-    #     nn.init.normal_(self.bias_mu, mean=0, std=0.1)
-    #     nn.init.normal_(self.bias_rho, mean=-3, std=0.1)
-
-    def forward(self, x):
-        weight_sigma = torch.log1p(torch.exp(self.weight_rho))
-        bias_sigma = torch.log1p(torch.exp(self.bias_rho))
-        epsilon_weight = Variable(torch.randn_like(weight_sigma))
-        epsilon_bias = Variable(torch.randn_like(bias_sigma))
-        weight = self.weight_mu + weight_sigma * epsilon_weight
-        bias = self.bias_mu + bias_sigma * epsilon_bias
-        output = F.linear(x, weight, bias)
-        return output, weight, bias
-    
