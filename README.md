@@ -11,3 +11,11 @@
 - [ ] Active training modalities
 - [ ] Config and experiments logger 
 - [ ] Requirements file
+
+to call each method: ```bnnbnpp, ensembles, dropout, sghmc ```
+to call each limit state: ```four_branch, himmelblau, electric, parabolic, high_dim```
+
+Train a model:
+```bash
+python main_train.py --method=dropout --lstate=four_branch
+```
