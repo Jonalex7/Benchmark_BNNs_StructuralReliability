@@ -12,7 +12,7 @@
 - [ ] Config and experiments logger 
 - [ ] Requirements file
 
-to call each method: ```bnnbnpp, ensembles, dropout, sghmc ```
+to call each method: ```bnnbpp, ensembles, dropout, sghmc ```
 to call each limit state: ```four_branch, himmelblau, electric, parabolic, high_dim```
 
 Train a model:
