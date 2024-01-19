@@ -35,15 +35,22 @@ class MLP(nn.Module):
         return self.block(x)
     
 class BNN_SGHMC():  # for regression
-    def __init__(self, N_train, input_dim=10, width=50, depth=2, output_dim=1, lr=1e-2, cuda=True, grad_std_mul=30):
+    def __init__(self, input_size, hidden_sizes, hidden_layers, output_size, args):
         super(BNN_SGHMC, self).__init__()
 
-        # cprint('y', 'BNN regression output')
-        self.lr = lr
-        self.model = MLP(input_dim=input_dim, width=width, depth=depth, output_dim=output_dim)
-        self.cuda = cuda
+        self.model = MLP(input_dim=input_size, width=hidden_sizes, depth=hidden_layers, output_dim=output_size)
 
-        self.N_train = N_train
+        self.lr = args['learning_rate']
+        self.burn_in = args['burn_in']
+        self.N_train = args['passive_samples']
+        self.re_burn = args['re_burn']
+        self.resample_its = args['resample_its']
+        self.resample_prior_its = args['resample_prior_its']
+        self.sim_steps = args['sim_steps']
+        self.N_saves = args['N_saved_models']
+        self.grad_std_mul = args['grad_std_mul']
+        self.cuda = args['cuda']
+
         self.create_net()
         self.create_opt()
         self.schedule = None  # [] #[50,200,400,600]
@@ -51,8 +58,6 @@ class BNN_SGHMC():  # for regression
 
         self.grad_buff = []
         self.max_grad = 1e20
-        self.grad_std_mul = grad_std_mul
-
         self.weight_set_samples = []
 
     def create_net(self):
@@ -94,10 +99,16 @@ class BNN_SGHMC():  # for regression
 
         return loss.data * x.shape[0] / self.N_train #, err
     
-    def train(self, train_loader, epoch=50, burn_in=10, re_burn = 1e8 , 
-              resample_its=50, resample_prior_its = 15, sim_steps = 2, N_saves=10, verbose=0):
+    def train(self, train_loader, num_epochs, lr, verbose):
+        burn_in = self.burn_in
+        re_burn = self.re_burn
+        resample_its = self.resample_its
+        resample_prior_its = self.resample_prior_its
+        sim_steps = self.sim_steps
+        N_saves = self.N_saves
+
         it_count = 0
-        n_epochs = int(epoch)
+        n_epochs = int(num_epochs)
         cost_train = np.zeros(n_epochs)
 
         for ep in range(0, n_epochs):
@@ -151,8 +162,9 @@ class BNN_SGHMC():  # for regression
         out = self.model(x)
         return out.data 
 
-    def sample_predict(self, x, Nsamples=0, grad=False):
+    def predictive_uq(self, x, grad=False):
         """return predictions using multiple samples from posterior"""
+        Nsamples = self.N_saves
         self.set_mode_train(train=False)
         if Nsamples == 0:
             Nsamples = len(self.weight_set_samples)
@@ -179,7 +191,7 @@ class BNN_SGHMC():  # for regression
         if grad:
             return out #prob_out
         else:
-            return out.data #prob_out.data
+            return out.data.view(-1, Nsamples) #prob_out.data
 
     def get_weight_samples(self, Nsamples=0):
         """return weight samples from posterior in a single-column array"""

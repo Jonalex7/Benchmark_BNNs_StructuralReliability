@@ -1,0 +1,8 @@
+l_state: g100d_highdim
+#Example 8: High-dimensional highly nonlinear problem
+# Ref. (HMCMC High Dim, Prof. Kostas, pag. 21)
+#PF_ref = 3.40E-5
+
+# --- reliability estimation options ---
+mcs_samples: 1000000
+evaluate: False #evaluate lstate over MC population for active learning

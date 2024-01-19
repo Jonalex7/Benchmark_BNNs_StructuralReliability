@@ -1,0 +1,8 @@
+l_state: g11d_electric
+#electromagnetic compatibility. Jean-Marc Bourinet A–1 Example 1 
+#This reliability problem is studied by Kouassi et al. (2016)
+#Ref. PF: 2.2e-4
+
+# --- reliability estimation options ---
+mcs_samples: 1000000
+evaluate: False #evaluate lstate over MC population for active learning

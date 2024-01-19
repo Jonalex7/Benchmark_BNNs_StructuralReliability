@@ -1,0 +1,16 @@
+# --- Defaults ---
+
+# --- active training options ---
+active_samples: 5
+active_epochs: 5
+
+# --- general model options ---
+passive_samples: 100
+training_epochs: 1000
+hidden_sizes: 20
+hidden_layers: 2
+learning_rate: 0.01
+batch_size: 32
+verbose: 0
+split_train_test: 1.0
+seed: null #null to read as None

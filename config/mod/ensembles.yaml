@@ -1,0 +1,9 @@
+method: "ensembles"
+
+# --- method options ---
+args:
+  n_ensembles: 5
+
+# --- results ---
+res_dir: "results/ensembles_results"
+res_file: "ensembles"

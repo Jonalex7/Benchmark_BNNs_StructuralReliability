@@ -1,0 +1,10 @@
+method: "dropout"
+
+# --- method options ---
+args:
+  dropout_probability: 0.1
+  n_simulations: 100
+
+# --- results ---
+res_dir: "results/dropout_results"
+res_file: "dropout"

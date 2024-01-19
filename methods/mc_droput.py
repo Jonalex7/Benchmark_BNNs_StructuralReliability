@@ -23,15 +23,17 @@ class MLP_dropout(nn.Module):
         return self.block(x)
     
 class NeuralNetworkWithDropout(nn.Module):
-    def __init__(self, input_size, width, depth, output_size, dropout_prob):
+    def __init__(self, input_size, hidden_sizes, hidden_layers, output_size, args):
         super(NeuralNetworkWithDropout, self).__init__()
-        self.model = MLP_dropout(input_size, width, depth, output_size, dropout_prob)
+        self.dropout_prob = args['dropout_probability']
+        self.n_sim = args['n_simulations']
+        self.model = MLP_dropout(input_size, hidden_sizes, hidden_layers, output_size, self.dropout_prob)
 
-    def train(self, train_loader, num_epochs, learning_rate, verbose=0):
+    def train(self, train_loader, num_epochs, lr, verbose=0):
         #criterion = nn.CrossEntropyLoss()
+        #optimizer = torch.optim.SGD(self.parameters(), lr=lr)
         criterion = nn.MSELoss()
-        #optimizer = torch.optim.SGD(self.parameters(), lr=learning_rate)
-        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
         for epoch in range(num_epochs):
             for inputs, labels in train_loader:
@@ -44,11 +46,11 @@ class NeuralNetworkWithDropout(nn.Module):
                 print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item()}')
         print("train_loss = %f" % (loss.item()), end=" ")
 
-    def predictive_uq(self, x, n_sim):
+    def predictive_uq(self, x):
         x_len = len(x)
-        y_random = torch.empty(x_len, n_sim)
+        y_random = torch.empty(x_len, self.n_sim)
         with torch.no_grad():
-            for i in range(n_sim):
+            for i in range(self.n_sim):
                 y_random[:, i] = self.model(x).reshape(-1)
         return y_random
 
