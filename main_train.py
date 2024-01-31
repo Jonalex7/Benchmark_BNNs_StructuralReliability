@@ -71,13 +71,8 @@ if not os.path.exists(results_dir):
 
 date_time_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# Seed definition
-if config_dict['seed'] is not None:
-    seed_experiment = config_dict['seed']
-else:
-    seed_experiment = np.random.randint(0, 2**30 - 1)
-np.random.seed(seed_experiment)
-torch.manual_seed(seed_experiment)
+number_exp = config_dict['number_exp']
+passive_samples = config_dict['passive_samples'] 
 
 # Loading limit state
 lstate = ls_REGISTRY[config_dict['l_state']]()
@@ -88,10 +83,6 @@ eval = config_dict['evaluate']
 pf, beta, _, y_mc_test = lstate.monte_carlo_estimate(mcs_samples)
 y_max = np.max(y_mc_test)   #to normalise the output for training
 print('ref. PF:', pf, 'B:',beta)
-
-# Passive training
-passive_samples = config_dict['passive_samples'] 
-x_norm, x_scaled, y_scaled = lstate.get_doe_points(n_samples=passive_samples, method='lhs')   
 
 # Neural net config.
 method = met_REGISTRY[config_dict['method']]
@@ -109,54 +100,69 @@ if config_dict['method'] == 'sghmc':
     args['passive_samples'] = passive_samples   #to estimate a loss over the whole dataset
     args['cuda'] = use_cuda                     #we could keep it to use cuda in all methods
 
-model = method(input_size=lstate.input_dim, hidden_sizes=hidden_sizes, 
-               hidden_layers=hidden_layers, output_size=lstate.output_dim, 
-               args=args)
-
 # Active training args
 training_epochs = config_dict['training_epochs']
 n_train_ep = config_dict['active_epochs']
 active_points = config_dict['active_samples']
 
-results_dict = {}
+for exp in range(number_exp):
 
-# Active training loop
-for ep in range(n_train_ep):
-
-    x_train = torch.tensor(x_norm, dtype=torch.float32)
-    y_train = torch.tensor(y_scaled, dtype=torch.float32).view(-1,1)
-    # y_train = torch.tensor(y_scaled/y_max, dtype=torch.float32).view(-1, lstate.output_dim)   #normalised output
-    
-    print('Samples: ', x_train.shape[0], end=" ")
-    train_loader, _ = get_dataloader(x_train, y_train, lstate.input_dim, lstate.output_dim, 
-                                     split_train_test, batch_size)
-
-    model.train(train_loader, num_epochs=training_epochs, lr=lr, verbose=verbose)
-
-    if eval is True:
-        Pf_ref, B_ref, x_mc_norm, _ = lstate.monte_carlo_estimate(mcs_samples)
-        print('pf_ref ', Pf_ref, end=" ")
+    # Seed definition
+    if config_dict['seed'] is not None:
+        seed_experiment = config_dict['seed']
     else:
-        x_mc_norm = np.random.uniform(0, 1, size=(mcs_samples, lstate.input_dim))
+        seed_experiment = np.random.randint(0, 2**30 - 1)
+    np.random.seed(seed_experiment)
+    torch.manual_seed(seed_experiment)
 
-    X_uq = torch.tensor(x_mc_norm, dtype=torch.float32)
-    
-    Y_uq = model.predictive_uq(X_uq)
-    y_mean = Y_uq.mean(dim=1)
-    pf_sumo = (((y_mean<0).sum()) / torch.tensor(mcs_samples)).item()
-    print('pf_surrogate ' , pf_sumo )
-    results_dict['pf_'+ str(len(x_train))] = pf_sumo
+    # Passive training
+    x_norm, x_scaled, y_scaled = lstate.get_doe_points(n_samples=passive_samples, method='lhs')   
+    results_dict = {}
 
-    x_norm = act_train.get_active_points(x_train, X_uq, Y_uq, active_points)
-    x_scaled = isoprob_transform(x_norm, lstate.marginals)
-    y_scaled = lstate.eval_lstate(x_scaled)
+    # Active training loop
+    for ep in range(n_train_ep):
 
-results_dict[str(len(x_train)) + '_doepoints'] = x_train, y_train
-# Storing seed for reproducibility
-results_dict['seed'] = seed_experiment
-results_dict['config'] = config_dict
+        model = method(input_size=lstate.input_dim, hidden_sizes=hidden_sizes, 
+                    hidden_layers=hidden_layers, output_size=lstate.output_dim, 
+                    args=args)
+        
+        x_train = torch.tensor(x_norm, dtype=torch.float32)
+        y_train = torch.tensor(y_scaled, dtype=torch.float32).view(-1,1)
+        # y_train = torch.tensor(y_scaled/y_max, dtype=torch.float32).view(-1, lstate.output_dim)   #normalised output
+        
+        print('Samples: ', x_train.shape[0], end=" ")
+        train_loader, _ = get_dataloader(x_train, y_train, lstate.input_dim, lstate.output_dim, 
+                                        split_train_test, batch_size)
 
-with open(results_dir + '/' + results_file+ "_" + config_dict['l_state'] + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
-    pickle.dump(results_dict, file_id)
+        model.train(train_loader, num_epochs=training_epochs, lr=lr, verbose=verbose)
 
-print('End training')
+        if eval is True:
+            Pf_ref, B_ref, x_mc_norm, _ = lstate.monte_carlo_estimate(mcs_samples)
+            print('pf_ref ', Pf_ref, end=" ")
+        else:
+            x_mc_norm = np.random.uniform(0, 1, size=(mcs_samples, lstate.input_dim))
+
+        X_uq = torch.tensor(x_mc_norm, dtype=torch.float32)
+        
+        Y_uq = model.predictive_uq(X_uq)
+        y_mean = Y_uq.mean(dim=1)
+        pf_sumo = (((y_mean<0).sum()) / torch.tensor(mcs_samples)).item()
+        print('pf_surrogate ' , pf_sumo )
+        results_dict['pf_'+ str(len(x_train))] = pf_sumo
+
+        x_norm = act_train.get_active_points(x_train, X_uq, Y_uq, active_points)
+        x_scaled = isoprob_transform(x_norm, lstate.marginals)
+        y_scaled = lstate.eval_lstate(x_scaled)
+
+    results_dict[str(len(x_train)) + '_doepoints'] = x_train, y_train
+    # Storing seed for reproducibility
+    results_dict['seed'] = seed_experiment
+    results_dict['config'] = config_dict
+
+    with open(results_dir + '/' + results_file+ "Res"+ str(exp+1)+ "_" + config_dict['l_state'] + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
+        pickle.dump(results_dict, file_id)
+
+    with open(results_dir + '/' + results_file+ "Mod"+ str(exp+1)+ "_" + config_dict['l_state'] + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
+        pickle.dump(model, file_id)
+
+    print('End training '+str(exp+1))

@@ -1,4 +1,5 @@
 # --- Defaults ---
+number_exp: 3
 
 # --- active training options ---
 active_samples: 5
