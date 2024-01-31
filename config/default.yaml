@@ -3,7 +3,7 @@ number_exp: 3
 
 # --- active training options ---
 active_samples: 5
-active_epochs: 5
+active_epochs: 11
 
 # --- general model options ---
 passive_samples: 100

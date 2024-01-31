@@ -2,6 +2,14 @@ l_state: g2d_four_branch
 #Schöbi et al. , ASCE J. Risk Unc. (2016)
 #Ref. PF: 0.0044684 B: 2.614
 
-# --- reliability estimation options ---
+#suggested network
+passive_samples: 50
+training_epochs: 2000
+hidden_sizes: 10
+hidden_layers: 1
+learning_rate: 0.01
+batch_size: 8
+
+# --- reliability estimation options --- 
 mcs_samples: 1000000
 evaluate: True #evaluate lstate over MC population for active learning
