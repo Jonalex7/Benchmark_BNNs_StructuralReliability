@@ -84,6 +84,7 @@ pf, beta, _, y_mc_test = lstate.monte_carlo_estimate(mcs_samples)
 y_max = np.max(y_mc_test)   #to normalise the output for training
 print('ref. PF:', pf, 'B:',beta)
 
+print('Method: ', config_dict['method'])
 # Neural net config.
 method = met_REGISTRY[config_dict['method']]
 hidden_sizes, hidden_layers = config_dict['hidden_sizes'], config_dict['hidden_layers']
@@ -127,8 +128,8 @@ for exp in range(number_exp):
                     args=args)
         
         x_train = torch.tensor(x_norm, dtype=torch.float32)
-        y_train = torch.tensor(y_scaled, dtype=torch.float32).view(-1,1)
-        # y_train = torch.tensor(y_scaled/y_max, dtype=torch.float32).view(-1, lstate.output_dim)   #normalised output
+        # y_train = torch.tensor(y_scaled, dtype=torch.float32).view(-1,1)
+        y_train = torch.tensor(y_scaled/y_max, dtype=torch.float32).view(-1, lstate.output_dim)   #normalised output
         
         print('Samples: ', x_train.shape[0], end=" ")
         train_loader, _ = get_dataloader(x_train, y_train, lstate.input_dim, lstate.output_dim, 

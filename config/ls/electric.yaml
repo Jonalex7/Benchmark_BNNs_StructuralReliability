@@ -3,6 +3,18 @@ l_state: g11d_electric
 #This reliability problem is studied by Kouassi et al. (2016)
 #Ref. PF: 2.2e-4
 
+#suggested network config
+active_samples: 5
+active_epochs: 31
+
+passive_samples: 500
+training_epochs: 1000
+hidden_sizes: 50
+hidden_layers: 1
+learning_rate: 0.0001
+batch_size: 32
+
+
 # --- reliability estimation options ---
 mcs_samples: 1000000
 evaluate: False #evaluate lstate over MC population for active learning
