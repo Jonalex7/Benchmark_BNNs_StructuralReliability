@@ -1,0 +1,10 @@
+doepy==0.0.1
+numpy==1.26.3
+pandas==2.1.4
+pip==23.3.1
+pyDOE==0.3.8
+python-dateutil==2.8.2
+PyYAML==6.0.1
+scipy==1.11.4
+setuptools==68.2.2
+torch==2.1.2

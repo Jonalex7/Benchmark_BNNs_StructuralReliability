@@ -1,0 +1,8 @@
+l_state: g2d_parabolic
+#Example 2: Parabolic/Concave limit-state function. 
+#Ref. (HMCMC High Dim, Prof. Kostas, pag. 14)
+#Ref. PF: 3.95E-5
+
+# --- reliability estimation options ---
+mcs_samples: 10000000
+evaluate: False #evaluate lstate over MC population for active learning

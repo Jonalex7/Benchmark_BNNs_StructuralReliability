@@ -1,0 +1,17 @@
+method: "sghmc"
+
+# --- method options ---
+args:
+  burn_in: 10
+  sim_steps: 2
+  N_saved_models: 20
+  resample_its: 50
+  resample_prior_its: 15
+  re_burn: 100000000  #1e8
+  grad_std_mul: 10
+
+training_epochs: 100   #HMC samples
+
+# --- results ---
+res_dir: "results/sghmc_results"
+res_file: "sghmc"

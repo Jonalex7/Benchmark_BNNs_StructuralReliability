@@ -1,0 +1,10 @@
+method: "bnnbpp"
+
+# --- method options ---
+args:
+  kl_scale: 100
+  n_simulations: 100
+
+# --- results ---
+res_dir: "results/bnnbpp_results"
+res_file: "bnnbpp"

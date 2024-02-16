@@ -56,16 +56,18 @@ class BayesianNeuralNetwork(nn.Module):
         return self.block(x)
     
 class BNN_BayesBackProp(nn.Module):
-    def __init__(self, input_size, hidden_sizes, hidden_layers, output_size):
+    def __init__(self, input_size, hidden_sizes, hidden_layers, output_size, args):
         super(BNN_BayesBackProp, self).__init__()
         self.input_size = input_size
         self.hidden_sizes = hidden_sizes
         self.hidden_layers = hidden_layers
         self.output_size = output_size
+        self.kl_scale = args['kl_scale']
+        self.n_sim = args['n_simulations']
 
         self.model = BayesianNeuralNetwork(self.input_size, self.hidden_sizes, self.hidden_layers, self.output_size)
 
-    def train(self, train_loader, num_epochs=10, lr=1e-3, kl_scale=10, verbose=0):
+    def train(self, train_loader, num_epochs=10, lr=1e-3, verbose=0):
         optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
         for epoch in range(num_epochs):
@@ -86,7 +88,7 @@ class BNN_BayesBackProp(nn.Module):
                         # Compute KL divergence for biases
                         kl_loss += 0.5 * (torch.sum(bias_mu**2) + torch.sum(torch.log1p(torch.exp(bias_rho)) - bias_rho) - bias_mu.numel())
                 
-                kl_loss = kl_loss / kl_scale
+                kl_loss = kl_loss / self.kl_scale
                 loss = recon_loss + kl_loss
                 loss.backward()
                 optimizer.step()
@@ -97,12 +99,12 @@ class BNN_BayesBackProp(nn.Module):
         # print(f'Epoch [{epoch+1}/{num_epochs}], total training loss: {loss.item()}, end=" "')
         print (f'Epoch [{epoch+1}/{num_epochs}], MSE: {recon_loss}, KL:{kl_loss}' , end=" ")
 
-    def predictive_uq (self, x, n_sim):
+    def predictive_uq (self, x):
         x_len = len(x)
-        y_random = torch.empty(x_len, n_sim)
+        y_random = torch.empty(x_len, self.n_sim)
 
         with torch.no_grad():
-            for i in range(n_sim):
+            for i in range(self.n_sim):
                 y_random[:, i] = self.model(x).reshape(-1)
                 
         # mean_uq, std_uq = torch.mean(y_random, 1), torch.std(y_random, 1)
