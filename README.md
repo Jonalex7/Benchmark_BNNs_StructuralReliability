@@ -7,7 +7,8 @@ python main_train.py --method=dropout --lstate=four_branch
 ```
 
 Available methods: ```bnnbpp, ensembles, dropout, sghmc ```
-Available limit state: ```four_branch, himmelblau, electric, parabolic, high_dim```
+
+Available limit states: ```four_branch, himmelblau, electric, parabolic, high_dim```
 
 ## :label: TODO 
 
