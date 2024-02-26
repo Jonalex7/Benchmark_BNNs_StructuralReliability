@@ -1,0 +1,23 @@
+# --- Defaults ---
+n_replications: 1 
+
+# --- general model options ---
+optimize_network: True #null to read as None
+
+hidden_layers: 3
+hidden_sizes: 1000
+learning_rate: 0.001
+
+training_epochs: 5000
+batch_size: 32
+verbose: null 
+seed: null #null to read as None
+
+#-- early stopping ---
+patience: 5 
+split_train_test: 0.9
+
+plot: True  #null to read as None
+validation: True  #null to read as None
+validation_size: 50000 
+
