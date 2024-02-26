@@ -17,7 +17,8 @@ class BayesianLayer(nn.Module):
         self.reset_parameters()
         
     def reset_parameters(self):
-        nn.init.kaiming_normal_(self.weight_mu, mode='fan_in', nonlinearity='relu')
+        # nn.init.kaiming_normal_(self.weight_mu, mode='fan_in', nonlinearity='relu')
+        nn.init.xavier_uniform_(self.weight_mu)
         nn.init.constant_(self.weight_rho, -6)  # Initialize log variance to a small value
         nn.init.zeros_(self.bias_mu)
         nn.init.constant_(self.bias_rho, -6)
@@ -31,6 +32,28 @@ class BayesianLayer(nn.Module):
         bias = self.bias_mu + bias_sigma * epsilon_bias
         output = F.linear(x, weight, bias)
         return output #, weight, bias
+
+    def kl_divergence(self, mu_q, log_sigma_q, mu_p, log_sigma_p):
+        """
+        Compute KL divergence between two Gaussian distributions with parameters (mu, log_sigma).
+        KL(q||p) = log(sigma_p / sigma_q) + (sigma_q^2 + (mu_q - mu_p)^2) / (2 * sigma_p^2) - 0.5
+        """
+        kl = log_sigma_p - log_sigma_q + (torch.exp(log_sigma_q)**2 + (mu_q - mu_p)**2) / (2 * torch.exp(log_sigma_p)**2) - 0.5
+        return kl.sum()
+
+    def layer_kl_divergence(self):
+        weight_prior_mu = torch.zeros_like(self.weight_mu)
+        weight_prior_log_sigma = torch.zeros_like(self.weight_rho)
+        bias_prior_mu = torch.zeros_like(self.bias_mu)
+        bias_prior_log_sigma = torch.zeros_like(self.bias_rho)
+        
+        kl_weight = self.kl_divergence(self.weight_mu, torch.log1p(torch.exp(self.weight_rho)),
+                                  weight_prior_mu, torch.log1p(torch.exp(weight_prior_log_sigma)))
+        
+        kl_bias = self.kl_divergence(self.bias_mu, torch.log1p(torch.exp(self.bias_rho)),
+                                bias_prior_mu, torch.log1p(torch.exp(bias_prior_log_sigma)))
+        
+        return kl_weight + kl_bias
     
     def extra_repr(self) -> str:
         return f'in_features={self.in_features}, out_features={self.out_features}'
@@ -43,11 +66,12 @@ class BayesianNeuralNetwork(nn.Module):
         self.output_dim = output_dim
         self.width = width
         self.depth = depth
+        self.activation = nn.ReLU()
 
-        layers = [BayesianLayer(input_dim, width), nn.ReLU()]
+        layers = [BayesianLayer(input_dim, width), self.activation]
         for i in range(depth - 1):
             layers.append(BayesianLayer(width, width))
-            layers.append(nn.ReLU())
+            layers.append(self.activation)
         layers.append(BayesianLayer(width, output_dim))
 
         self.block = nn.Sequential(*layers)
@@ -64,40 +88,94 @@ class BNN_BayesBackProp(nn.Module):
         self.output_size = output_size
         self.kl_scale = args['kl_scale']
         self.n_sim = args['n_simulations']
+        self.weight_decay = args['weight_decay']
+        self.case_file = args['case']
 
         self.model = BayesianNeuralNetwork(self.input_size, self.hidden_sizes, self.hidden_layers, self.output_size)
 
-    def train(self, train_loader, num_epochs=10, lr=1e-3, verbose=0):
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+    def train(self, train_loader, test_loader, num_epochs=10, lr=1e-3, patience=10, verbose=0):
+        self.criterion = nn.MSELoss()
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=self.weight_decay)
+        self.num_epochs = num_epochs
+        best_val_loss = torch.inf
+        train_avg_recon_loss = []
+        train_avg_kl_loss = []
+        total_train_ave_loss = []
+        test_avg_recon_loss = []
+        test_avg_kl_loss = []
+        total_test_ave_loss = []
 
         for epoch in range(num_epochs):
-            for inputs, targets in train_loader:
-                optimizer.zero_grad()
-                output_mu = self.model(inputs)
-                recon_loss = F.mse_loss(output_mu, targets, reduction='mean')
-                kl_loss = 0
+            train_recon_losses = []
+            train_kl_losses = []
+            total_train_loss = []
+            test_recon_losses = []           
+            test_kl_losses = [] 
+            total_test_loss = []
 
-                for layer in self.model.block.children():
-                    if isinstance(layer, BayesianLayer):
-                        weight_mu = layer.weight_mu
-                        weight_rho = layer.weight_rho
-                        bias_mu = layer.bias_mu
-                        bias_rho = layer.bias_rho
-                        # Compute KL divergence for weights
-                        kl_loss += 0.5 * (torch.sum(weight_mu**2) + torch.sum(torch.log1p(torch.exp(weight_rho)) - weight_rho) - weight_mu.numel())
-                        # Compute KL divergence for biases
-                        kl_loss += 0.5 * (torch.sum(bias_mu**2) + torch.sum(torch.log1p(torch.exp(bias_rho)) - bias_rho) - bias_mu.numel())
-                
+            for inputs, targets in train_loader:
+                #reconstruction loss
+                output_mu = self.model(inputs)
+                recon_loss = self.criterion(output_mu, targets)
+                train_recon_losses.append(recon_loss.detach().item())
+                #kl divergence loss
+                kl_loss = self.get_model_kl_loss()
                 kl_loss = kl_loss / self.kl_scale
+                train_kl_losses.append(kl_loss.detach().item())
+
                 loss = recon_loss + kl_loss
+                total_train_loss.append(loss.detach().item())
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
-            if not verbose == 0: 
-                print(f'Epoch [{epoch+1}/{num_epochs}], Loss MSE: {recon_loss}, Loss KL: {kl_loss}')
-            
-        # print(f'Epoch [{epoch+1}/{num_epochs}], total training loss: {loss.item()}, end=" "')
-        print (f'Epoch [{epoch+1}/{num_epochs}], MSE: {recon_loss}, KL:{kl_loss}' , end=" ")
+            train_avg_recon_loss.append(sum(train_recon_losses)/len(train_recon_losses))
+            train_avg_kl_loss.append(sum(train_kl_losses)/len(train_kl_losses))
+            total_train_ave_loss.append(sum(total_train_loss)/len(total_train_loss))
+
+            with torch.no_grad():
+                for inputs, targets in test_loader:
+                    #reconstruction loss
+                    outputs = self.model(inputs)
+                    recon_loss = self.criterion(outputs, targets)
+                    test_recon_losses.append(recon_loss.detach().item())
+                    #kl divergence loss
+                    kl_loss = self.get_model_kl_loss()
+                    kl_loss = kl_loss / self.kl_scale
+                    test_kl_losses.append(kl_loss.detach().item())
+
+                    valid_loss = recon_loss + kl_loss
+                    total_test_loss.append(valid_loss.detach().item())
+
+                test_avg_recon_loss.append(sum(test_recon_losses)/len(test_recon_losses))
+                test_avg_kl_loss.append(sum(test_kl_losses)/len(test_kl_losses))
+                total_test_ave_loss.append(sum(total_test_loss)/len(total_test_loss))
+
+            # Check for early stopping
+            best_model_name = 'best_model_bnnbpp_' + self.case_file +'.pth'
+
+            if total_test_ave_loss[-1] < best_val_loss:
+                best_val_loss = total_test_ave_loss[-1]
+                torch.save(self.model.state_dict(), best_model_name)
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                if patience_counter >= patience:
+                    print(f'Early stopping at epoch [{epoch+1}/{self.num_epochs}]')
+                    break
+
+            if verbose is not None:
+                print (f'Epoch [{epoch+1}/{self.num_epochs}] Train, MSE: {train_avg_recon_loss[-1]:.2E} + KL:{train_avg_kl_loss[-1]:.2E} = {total_train_ave_loss[-1]:.2E} /' 
+                       f' Test, MSE: {test_avg_recon_loss[-1]:.2E} + KL:{test_avg_kl_loss[-1]:.2E} = {total_test_ave_loss[-1]:.2E}')
+        
+        # Load the best model
+        self.model.load_state_dict(torch.load(best_model_name))
+        model_id = -patience-1
+        #end of training
+        print (f'End Train, MSE: {train_avg_recon_loss[model_id]:.2E} + KL:{train_avg_kl_loss[model_id]:.2E} = {total_train_ave_loss[model_id]:.2E} /' 
+               f' Test, MSE: {test_avg_recon_loss[model_id]:.2E} + KL:{test_avg_kl_loss[model_id]:.2E} = {total_test_ave_loss[model_id]:.2E}')
+        
+        return total_train_ave_loss, total_test_ave_loss
 
     def predictive_uq (self, x):
         x_len = len(x)
@@ -115,5 +193,16 @@ class BNN_BayesBackProp(nn.Module):
         for p in model.parameters():
             p_count += len(p)
         return p_count
+
+    def get_model_kl_loss(self):
+        kl_loss = 0
+        for layer in self.model.block.children():
+            if isinstance(layer, BayesianLayer):
+                kl_loss+=layer.layer_kl_divergence()
+        return kl_loss
+
+    def forward(self, x):
+        with torch.no_grad():
+            return self.model(x)
     
 

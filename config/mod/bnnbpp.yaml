@@ -4,7 +4,4 @@ method: "bnnbpp"
 args:
   kl_scale: 100
   n_simulations: 100
-
-# --- results ---
-res_dir: "results/bnnbpp_results"
-res_file: "bnnbpp"
+  weight_decay: 0.001
