@@ -2,20 +2,19 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from scipy.stats import norm, uniform, lognorm
 
-def get_dataloader(X, Y, input_dim, output_dim, train_test_split, batch_size):
+def get_dataloader(X, Y, train_test_split, batch_size):
     if not type(X) == torch.Tensor:
         inputs = torch.tensor(X, dtype=torch.float32)
     else:
         inputs = X
     
     if not type(Y) == torch.Tensor:
-        targets = torch.tensor(Y.reshape(-1, output_dim), dtype=torch.float32)
+        targets = torch.tensor(Y.reshape(-1, 1), dtype=torch.float32)
     else:
-        targets = Y.reshape(-1, output_dim)
+        targets = Y.reshape(-1, 1)
 
     # Split the data into training and testing sets
     train_size = int(train_test_split * len(inputs))
-    #test_size = len(inputs) - train_size
 
     train_inputs = inputs[:train_size]
     train_targets = targets[:train_size]
@@ -58,3 +57,24 @@ def isoprob_transform (x_normalised, marginals):
             x_scaled[:, margin] = torch.tensor(lognorm.ppf(x_normalised[:, margin], s=SigmaLogNormal, scale=xlog_mean)) 
     
     return x_scaled
+
+def normalize_data(dataset, mean=None, variance=None):
+
+    if mean is not None and variance is not None:
+        # Normalize the dataset
+        normalized_dataset = (dataset - mean) / torch.sqrt(variance + 1e-8)  # Adding a small epsilon to avoid division by zero
+        return normalized_dataset
+    
+    else:
+    # Compute the mean and variance along each dimension
+        mean = torch.mean(dataset, dim=0)
+        variance = torch.var(dataset, dim=0)
+        # Normalize the dataset
+        normalized_dataset = (dataset - mean) / torch.sqrt(variance + 1e-8)  # Adding a small epsilon to avoid division by zero
+        return normalized_dataset, mean, variance
+
+def denormalize_data(normalized_dataset, mean, variance):
+    # Recover the original dataset
+    dataset = normalized_dataset * torch.sqrt(variance + 1e-8) + mean  # Adding a small epsilon to avoid division by zero
+    
+    return dataset
