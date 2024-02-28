@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import copy
 
 # Bayesian neural network with class to build Bayesian Layers with Pytorch
 
@@ -89,7 +90,6 @@ class BNN_BayesBackProp(nn.Module):
         self.kl_scale = args['kl_scale']
         self.n_sim = args['n_simulations']
         self.weight_decay = args['weight_decay']
-        self.case_file = args['case']
 
         self.model = BayesianNeuralNetwork(self.input_size, self.hidden_sizes, self.hidden_layers, self.output_size)
 
@@ -97,7 +97,7 @@ class BNN_BayesBackProp(nn.Module):
         self.criterion = nn.MSELoss()
         optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=self.weight_decay)
         self.num_epochs = num_epochs
-        best_val_loss = torch.inf
+        best_total_test_loss = torch.inf
         train_avg_recon_loss = []
         train_avg_kl_loss = []
         total_train_ave_loss = []
@@ -152,11 +152,18 @@ class BNN_BayesBackProp(nn.Module):
                 total_test_ave_loss.append(sum(total_test_loss)/len(total_test_loss))
 
             # Check for early stopping
-            best_model_name = 'best_model_bnnbpp_' + self.case_file +'.pth'
+            if total_test_ave_loss[-1] < best_total_test_loss:
+                #saving best losses
+                best_total_test_loss = total_test_ave_loss[-1]
+                best_test_recons = test_avg_recon_loss[-1]
+                best_test_kl = test_avg_kl_loss[-1]
 
-            if total_test_ave_loss[-1] < best_val_loss:
-                best_val_loss = total_test_ave_loss[-1]
-                torch.save(self.model.state_dict(), best_model_name)
+                best_total_train_loss = total_train_ave_loss[-1]   
+                best_train_recon = train_avg_recon_loss[-1]
+                best_train_kl = train_avg_kl_loss[-1]
+
+                #saving best model
+                self.best_model = copy.deepcopy(self.model.state_dict())
                 patience_counter = 0
             else:
                 patience_counter += 1
@@ -168,14 +175,14 @@ class BNN_BayesBackProp(nn.Module):
                 print (f'Epoch [{epoch+1}/{self.num_epochs}] Train, MSE: {train_avg_recon_loss[-1]:.2E} + KL:{train_avg_kl_loss[-1]:.2E} = {total_train_ave_loss[-1]:.2E} /' 
                        f' Test, MSE: {test_avg_recon_loss[-1]:.2E} + KL:{test_avg_kl_loss[-1]:.2E} = {total_test_ave_loss[-1]:.2E}')
         
-        # Load the best model
-        self.model.load_state_dict(torch.load(best_model_name))
-        model_id = -patience-1
+        # Loading the best model
+        self.model.load_state_dict(self.best_model)
+
         #end of training
-        print (f'End Train, MSE: {train_avg_recon_loss[model_id]:.2E} + KL:{train_avg_kl_loss[model_id]:.2E} = {total_train_ave_loss[model_id]:.2E} /' 
-               f' Test, MSE: {test_avg_recon_loss[model_id]:.2E} + KL:{test_avg_kl_loss[model_id]:.2E} = {total_test_ave_loss[model_id]:.2E}')
+        print (f'End Train, MSE: {best_train_recon:.2E} + KL:{best_train_kl:.2E} = {best_total_train_loss:.2E} /' 
+               f' Test, MSE: {best_test_recons:.2E} + KL:{best_test_kl:.2E} = {best_total_test_loss:.2E}')
         
-        return total_train_ave_loss, total_test_ave_loss
+        return best_total_train_loss, best_total_test_loss
 
     def predictive_uq (self, x):
         x_len = len(x)

@@ -1,5 +1,6 @@
 # Results
 results/
+wandb/
 
 # Jupyter Notebook
 .ipynb_checkpoints

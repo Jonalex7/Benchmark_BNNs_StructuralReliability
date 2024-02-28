@@ -3,21 +3,22 @@ n_replications: 1
 
 # --- general model options ---
 optimize_network: True #null to read as None
+#check the param_space in bench_train.py
 
-hidden_layers: 3
-hidden_sizes: 1000
-learning_rate: 0.001
+hidden_layers: 2
+hidden_sizes: 100
+learning_rate: 0.0001
 
 training_epochs: 5000
-batch_size: 32
+batch_size: 64
 verbose: null 
 seed: null #null to read as None
 
 #-- early stopping ---
-patience: 5 
+patience: 10
 split_train_test: 0.9
 
-plot: True  #null to read as None
+plot: null  #null to read as None
 validation: True  #null to read as None
-validation_size: 50000 
+validation_size: 10000
 

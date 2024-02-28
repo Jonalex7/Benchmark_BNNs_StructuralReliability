@@ -5,18 +5,15 @@ import torch
 import torch.nn as nn
 from datetime import datetime
 import numpy as np
-from sklearn.base import BaseEstimator
 from skopt import BayesSearchCV
 from skopt.space import Real, Integer
 import sys
 import pickle
-import matplotlib.pyplot as plt
-from utils.data import normalize_data, denormalize_data
-import scipy
+# import matplotlib.pyplot as plt
 import yaml
 
 from methods import REGISTRY as met_REGISTRY
-from utils.data import get_dataloader
+from utils.data import get_dataloader, normalize_data, denormalize_data
 from utils.hyperoptim import PyTorchEstimator_NN
 
 def _get_config(params, arg_name, subfolder):
@@ -126,10 +123,8 @@ date_time_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 if config_dict['validation'] is not None:
     valid_samples = config_dict['validation_size']   #size of the validation data set
     #validation samples
-    x_valid = data['validation'][0] # feature matrix, shape (100_000,3)
-    y_valid = data['validation'][1] # dependent variable, shape (100_000,)
-    # x_valid = torch.tensor(x_valid[:valid_samples], dtype=torch.float32)
-    # y_valid = torch.tensor(y_valid[:valid_samples], dtype=torch.float32).reshape(-1, 1)
+    x_valid = data['validation'][1][:valid_samples] # idx 0 has normalised inputs (0,1)
+    y_valid = data['validation'][2][:valid_samples] # dependent variable, shape (100_000,)
 
 for set in range(training_sets):
 
@@ -150,34 +145,22 @@ for set in range(training_sets):
 
         set=6
 
-        x_train = data['training'][set][rep][0]
-        y_train = data['training'][set][rep][1]
+        x_train = data['training'][set][rep][1]
+        y_train = data['training'][set][rep][2]
 
         print('Data set: ', file_name, '-----------------------------------------------------')
         print('Training set size: ', x_train.shape[0], end=" ")
-        print('Replication: ', rep+1)
+        print('Replication: ', rep)
 
         config_dict['train_set_size'] = (set, x_train.shape[0])
         config_dict['replication'] = rep
-        args['case'] = config_dict['data_case'] = file_name
-
-        # x_train = torch.tensor(x_train, dtype=torch.float32)
-        # y_train = torch.tensor(y_train, dtype=torch.float32).reshape(-1, 1)
+        config_dict['data_case'] = file_name
 
         input_dim = x_train.shape[1]
-        output_dim = 1
+        output_dim = y_train.shape[1]
 
         x_norm, x_mean, x_var = normalize_data(x_train)
         y_norm, y_mean, y_var = normalize_data(y_train)
-
-        # p_norm = 2
-        # x_denom = x_train.norm(p_norm, dim=0, keepdim=True)
-        # y_denom = y_train.norm(p_norm, dim=0, keepdim=True)
-
-        # x_norm = x_train / x_denom
-        # y_norm = y_train / y_denom
-
-        # args['kl_scale'] = x_train.shape[0] * split_train_test
 
         if config_dict['optimize_network'] is not None:
             print('Optimizing hyperparameters')
@@ -191,10 +174,10 @@ for set in range(training_sets):
             # # Define the search space for hyperparameters
             param_space = {
                 'lr': Real(1e-5, 1e-1, prior='log-uniform'),
-                'hidden_size': Integer(100, 500, prior='uniform'),
-                'hidden_layers': Integer(3, 5, prior='uniform'),
-                # 'kl_scale': Integer(100, 1000, prior='uniform')}
-                'drop_prob': Real(0.0005, 0.2, prior='uniform') }
+                'hidden_size': Integer(10, 30, prior='uniform'),
+                'hidden_layers': Integer(2, 3, prior='uniform'),
+                'kl_scale': Integer(100, 1000, prior='uniform')}
+                # 'drop_prob': Real(0.0005, 0.2, prior='uniform')}
 
             # Perform Bayesian optimization
             bayes_cv_tuner = BayesSearchCV(
@@ -248,11 +231,19 @@ for set in range(training_sets):
         if config_dict['validation'] is not None:
             # Validation error - RSUQ metric, Relative MSE
             print('Estimating Rel. MSE...')
-            Y_uq_val = model.predictive_uq(normalize_data(x_valid, mean=x_mean, variance=x_var))
-            y_mean_norm = Y_uq_val.mean(dim=1).reshape(-1,1)
-            y_mean_val= denormalize_data(y_mean_norm, mean=y_mean, variance=y_var)
+            
+            n_sim = args['n_simulations']
+            y_random = torch.empty(len(x_valid),n_sim)
+            with torch.no_grad():
+                x_valid_norm = normalize_data(x_valid, mean=x_mean, variance=x_var)
+                for i in range(n_sim):
+                    prediction = model(x_valid_norm).reshape(-1)
+                    y_random[:, i] = denormalize_data(prediction, mean=y_mean, variance=y_var)
 
-            rel_mse = model.criterion(y_valid, y_mean_val)/(torch.var(y_valid))
+            y_mean = y_random.mean(dim=1).reshape(-1,1)
+            # y_mean_val= denormalize_data(y_mean_norm, mean=y_mean, variance=y_var)
+
+            rel_mse = model.criterion(y_valid, y_mean)/(torch.var(y_valid))
             results_file['rel_mse'] = rel_mse.item()
 
             print(f'Relative MSE on validation data set with {valid_samples} samples: {rel_mse.item():.2E}')
@@ -267,7 +258,7 @@ for set in range(training_sets):
             fig1, axs = plt.subplots(1, 1 , figsize=(16*cm, 11*cm), dpi=100, facecolor='w', edgecolor='k')
             plt.subplots_adjust(left=0.12, right=.95, top=0.90, bottom=0.15, hspace = 0.65, wspace=0.6)
 
-            fig1.suptitle(method_name+', ' + ' training samples: '+ str(x_train.shape[0])+ ', replication: '+ str(rep+1) )
+            fig1.suptitle(method_name+', ' + ' training samples: '+ str(x_train.shape[0])+ ', replication: '+ str(rep) )
             axs.plot(train_hist, label='train loss')
             axs.plot(valid_hist, label='test loss')
             axs.text(0.01, 1.0, info_text, transform=axs.transAxes, fontsize=10, verticalalignment='top')
@@ -276,8 +267,8 @@ for set in range(training_sets):
             plt.grid(linestyle='--', linewidth=0.5,  which='Both')
             plt.legend()
             # plt.show()
-            fig1.savefig(results_dir+'/'+'set_'+str(set+1)+'_rep_'+str(rep+1)+"_"+date_time_stamp+'.jpg')
+            fig1.savefig(results_dir+'/'+'set_'+str(set)+'_rep_'+str(rep)+"_"+date_time_stamp+'.jpg')
 
         #Saving results file
-        with open(results_dir +'/'+'set_'+str(set+1)+'_rep_'+str(rep+1) + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
+        with open(results_dir +'/'+'set_'+str(set)+'_rep_'+str(rep) + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
             pickle.dump(results_file, file_id)
