@@ -6,68 +6,11 @@ from copy import deepcopy
 import sys
 import collections
 import torch
+import numpy as np
+from datetime import datetime
 
 from methods import REGISTRY as met_REGISTRY
 from utils.data import get_dataloader, normalize_data, denormalize_data
-
-def _get_config(params, arg_name, subfolder):
-    config_name = None
-    for _i, _v in enumerate(params):
-        if _v.split("=")[0] == arg_name:
-            config_name = _v.split("=")[1]
-            method_name = config_name
-            del params[_i]
-            break
-
-    if config_name is not None:
-        with open(
-            os.path.join(
-                os.path.dirname(__file__),
-                "config",
-                subfolder,
-                "{}.yaml".format(config_name),
-            ),
-            "r",
-        ) as f:
-            try:
-                config_dict = yaml.full_load(f)
-            except yaml.YAMLError as exc:
-                assert False, "{}.yaml error: {}".format(config_name, exc)
-        return config_dict, method_name
-    
-def _get_data(params, arg_name, subfolder):
-    data_name = None
-    for _i, _v in enumerate(params):
-        if _v.split("=")[0] == arg_name:
-            data_name = _v.split("=")[1]
-            file_name = data_name
-            del params[_i]
-            break
-
-    if data_name is not None:
-        with open(
-            os.path.join(
-                os.path.dirname(__file__),
-                "bench_cases",
-                subfolder,
-                "{}.pkl".format(data_name),
-            ),
-            "rb",
-        ) as f:
-            try:
-                data_set = pickle.load(f)
-            except Exception as e:
-                print("Error loading .pkl file:", e)
-        return data_set, file_name
-    
-def recursive_dict_update(d, u):
-    for k, v in u.items():
-        if isinstance(v, collections.Mapping):
-            d[k] = recursive_dict_update(d.get(k, {}), v)
-        else:
-            d[k] = v
-    return d
-
 
 def training_loop(config=None):
     
@@ -79,6 +22,7 @@ def training_loop(config=None):
         training_epochs = 5000
         set_ = 6
         replication = 0
+        results_file = {}
 
         model_bnn = met_REGISTRY[config.model]
 
@@ -90,6 +34,15 @@ def training_loop(config=None):
         dropout_probability = config.dropout
         w_decay = config.weight_decay
         num_forwards = config.num_forwards
+        seed = config.seed
+
+        # Seed definition
+        if seed is not None:
+            seed_experiment = seed
+        else:
+            seed_experiment = np.random.randint(0, 2**30 - 1)
+        np.random.seed(seed_experiment)
+        torch.manual_seed(seed_experiment)
 
         args = {}
         args['dropout_probability'] = dropout_probability
@@ -111,6 +64,13 @@ def training_loop(config=None):
                 data = pickle.load(f)
             except Exception as e:
                 print("Error loading .pkl file:", e)
+
+        # Directory to save results
+        results_dir = 'bench_cases/results/'+'hyper_tune_'+ file_name +'/'+ config.model
+        date_time_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
 
         x_train = data['training'][set_][replication][1]
         y_train = data['training'][set_][replication][2]
@@ -158,6 +118,17 @@ def training_loop(config=None):
 
         wandb.log({"rela_mse": rel_mse})
 
+        results_file['seed'] = seed_experiment
+        results_file['config'] = config_dict
+        results_file['metrics'] = train_loss, valid_loss, rel_mse
+        results_file['model'] = model
+        results_file['x_mean_var'] = x_mean, x_var
+        results_file['y_mean_var'] = y_mean, y_var
+
+        #Saving results file
+        with open(results_dir +'/'+'set_'+str(set_)+'_rep_'+str(replication) + "_" + date_time_stamp + ".pkl", 'wb') as file_id:
+            pickle.dump(results_file, file_id)
+
 if __name__ == "__main__":
     params = deepcopy(sys.argv)
     # Get the defaults from default.yaml
@@ -168,12 +139,6 @@ if __name__ == "__main__":
             config_dict = yaml.full_load(f)
         except yaml.YAMLError as exc:
             assert False, "default.yaml error: {}".format(exc)
-
-    # Load algorithm and env base configs
-    # model_dict, method_name = _get_config(params, "--method", "mod")
-    # config_dict = recursive_dict_update(config_dict, model)
-            
-    # data, file_name = _get_data(params, "--data", "data")
 
     # Initialize the sweep
     sweep_id = wandb.sweep(config_dict, project="bench_rsuq_Borehole")
