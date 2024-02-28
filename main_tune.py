@@ -4,7 +4,6 @@ import pickle
 import yaml
 from copy import deepcopy
 import sys
-import collections
 import torch
 import numpy as np
 from datetime import datetime
@@ -31,10 +30,11 @@ def training_loop(config=None):
         learning_rate = config.learning_rate
         hidden_sizes = config.hidden_size
         hidden_layers = config.layers
-        dropout_probability = config.dropout
+        
         w_decay = config.weight_decay
         num_forwards = config.num_forwards
         seed = config.seed
+        valid_samples = config.validation_size
 
         # Seed definition
         if seed is not None:
@@ -45,7 +45,13 @@ def training_loop(config=None):
         torch.manual_seed(seed_experiment)
 
         args = {}
+
+        dropout_probability = config.dropout
         args['dropout_probability'] = dropout_probability
+
+        # kl_scale = config.kl_scale
+        # args['kl_scale'] = kl_scale
+
         args['n_simulations'] = num_forwards
         args['weight_decay'] = w_decay
 
@@ -75,8 +81,8 @@ def training_loop(config=None):
         x_train = data['training'][set_][replication][1]
         y_train = data['training'][set_][replication][2]
 
-        x_valid = data['validation'][1] # idx 0 has normalised inputs (0,1)
-        y_valid = data['validation'][2] # dependent variable, shape (100_000,)
+        x_valid = data['validation'][1][:valid_samples] # idx 0 has normalised inputs (0,1)
+        y_valid = data['validation'][2][:valid_samples] # dependent variable, shape (100_000,)
 
         print('Data set: ', file_name, '-----------------------------------------------------')
         print('Training set size: ', x_train.shape[0], end=" ")
@@ -131,17 +137,17 @@ def training_loop(config=None):
 
 if __name__ == "__main__":
     params = deepcopy(sys.argv)
-    # Get the defaults from default.yaml
+    # Get the defaults from default_hypertune.yaml
     with open(
         os.path.join(os.path.dirname(__file__), "config", "default_hypertune.yaml"), "r"
     ) as f:
         try:
             config_dict = yaml.full_load(f)
         except yaml.YAMLError as exc:
-            assert False, "default.yaml error: {}".format(exc)
+            assert False, "default_hypertune.yaml error: {}".format(exc)
 
     # Initialize the sweep
-    sweep_id = wandb.sweep(config_dict, project="bench_rsuq_Borehole")
+    sweep_id = wandb.sweep(config_dict, project="bench_rsuq_dropout_Borehole")
 
     # Run the sweep
     wandb.agent(sweep_id, function=training_loop, count=10)

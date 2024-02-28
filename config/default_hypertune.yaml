@@ -3,8 +3,6 @@ metric:
   goal: minimize
   name: loss
 parameters:
-  dropout:
-    values: [0.0005, 0.005, 0.01, 0.1, 0.2]
   learning_rate:
     values: [0.01, 0.001, 0.0001, 0.00001]
   hidden_size:
@@ -17,9 +15,13 @@ parameters:
     value: 100
   batch_size:
     value: 32
-  model:
-    value: dropout
-  dataset:
-    value: Borehole
   seed:
     value: null
+  validation_size:
+    value: 10000
+  model:
+    value: dropout
+  dropout:
+    values: [0.0005, 0.005, 0.01, 0.1, 0.2]
+  dataset:
+    value: Borehole
