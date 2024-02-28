@@ -1,0 +1,23 @@
+method: random
+metric:
+  goal: minimize
+  name: loss
+parameters:
+  dropout:
+    values: [0.0005, 0.005, 0.01, 0.1, 0.2]
+  learning_rate:
+    values: [0.01, 0.001, 0.0001, 0.00001]
+  hidden_size:
+    values: [10, 20, 30, 40]
+  layers:
+    values: [2, 3, 4, 5, 6]
+  weight_decay:
+    values: [0.01, 0.001, 0.0001]
+  num_forwards:
+    value: 100
+  batch_size:
+    value: 32
+  model:
+    value: dropout
+  dataset:
+    value: Borehole
