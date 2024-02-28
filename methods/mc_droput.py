@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import copy
 
 class MLP_dropout(nn.Module):
     def __init__(self, input_dim, width, depth, output_dim, dropout_prob):
@@ -36,7 +37,6 @@ class NeuralNetworkWithDropout(nn.Module):
         self.dropout_prob = args['dropout_probability']
         self.weight_decay = args['weight_decay']
         self.n_sim = args['n_simulations']
-        self.case_file = args['case']
         self.model = MLP_dropout(input_size, hidden_sizes, hidden_layers, output_size, self.dropout_prob)
 
     def train(self, train_loader, test_loader, num_epochs, lr, patience=10 ,verbose=0):
@@ -75,11 +75,10 @@ class NeuralNetworkWithDropout(nn.Module):
                 print(f'Epoch [{epoch + 1}/{num_epochs}], train_l: {train_avg_loss[-1]:.2E}, test_l:{test_avg_loss[-1]:.2E}')
 
             # Check for early stopping
-            best_model_name = 'best_model_dropout_' + self.case_file +'.pth'
-
             if test_avg_loss[-1] < best_val_loss:
                 best_val_loss = test_avg_loss[-1]
-                torch.save(self.model.state_dict(), best_model_name)
+                best_train_loss = train_avg_loss[-1]
+                self.best_model = copy.deepcopy(self.model.state_dict())
                 patience_counter = 0
             else:
                 patience_counter += 1
@@ -87,12 +86,12 @@ class NeuralNetworkWithDropout(nn.Module):
                     print(f'Early stopping at epoch {epoch+1}', end=" ")
                     break
 
-        # # print("train_loss = %f" % (loss.item()), end=" ")
-        print(f'Epoch [{epoch + 1}/{num_epochs}], train_l: {train_avg_loss[-patience-1]:.2E}, test_l: {test_avg_loss[-patience-1]:.2E}')
+        print(f'Epoch [{epoch + 1}/{num_epochs}], train_l: {best_train_loss:.2E}, test_l: {best_val_loss:.2E}')
 
         # Load the best model
-        self.model.load_state_dict(torch.load(best_model_name))
-        return train_avg_loss, test_avg_loss
+        self.model.load_state_dict(self.best_model)
+
+        return best_train_loss, best_val_loss
 
     def predictive_uq(self, x):
         x_len = len(x)
